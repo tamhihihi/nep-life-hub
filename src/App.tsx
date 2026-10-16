@@ -1,25 +1,20 @@
 import React, { useRef, useState, useEffect, Suspense, lazy } from 'react';
 import { 
-  Utensils, 
   Moon, 
   Calendar, 
-  Coffee, 
   Plus, 
   CheckCircle2, 
   Circle, 
   Bell, 
   BellRing, 
   Bus, 
-  ShoppingBag, 
+  Coffee,
   Download, 
   Upload, 
-  Camera, 
-  Wallet, 
   Sparkles, 
   X, 
   QrCode, 
   Calculator, 
-  Users, 
   ChevronRight,
   RotateCcw
 } from 'lucide-react';
@@ -31,7 +26,7 @@ import { NepMoments } from './components/expense/social/NepMoments';
 import { notifier } from './utils/notificationService';
 import { sounds } from './utils/soundEngine';
 
-// TẢI TRỄ (LAZY LOADING) CÁC MODAL VÀ TAB NẶNG ĐỂ MỞ APP TỨC THÌ
+// TẢI TRỄ CÁC MODAL VÀ TAB NẶNG
 const QrScannerModal = lazy(() =>
   import('./components/expense/QrScannerModal').then((m) => ({ default: (m as any).QrScannerModal || (m as any).default }))
 );
@@ -57,7 +52,6 @@ const TarotCardFlip = lazy(() =>
   import('./components/evening/TarotCardFlip').then((m) => ({ default: (m as any).TarotCardFlip || (m as any).default }))
 );
 
-// Rung phản hồi Haptic nhẹ nhàng chuẩn iOS
 const triggerHaptic = (type: 'light' | 'medium' | 'success' = 'light') => {
   if (typeof window !== 'undefined' && 'vibrate' in navigator) {
     if (type === 'light') navigator.vibrate(12);
@@ -81,13 +75,8 @@ export default function App() {
     setIsAddScheduleOpen 
   } = store;
 
-  // 3 Phân vùng Trang Chủ
   const [hubSection, setHubSection] = useState<'wallet' | 'lokcam' | 'chill'>('wallet');
-
-  // Sheet Cài đặt & Hồ sơ
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-  // Toast hoàn tác khi bấm 1-Tap
   const [undoToast, setUndoToast] = useState<{ id: string; text: string } | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
 
@@ -172,7 +161,6 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  // Nút tắt 1-Tap ghi nhanh + Rung Haptic + Hoàn tác
   const handleQuickSpend = (amount: number, category: string, note: string) => {
     triggerHaptic('medium');
     sounds.playKeypadTap();
@@ -227,10 +215,15 @@ export default function App() {
   };
 
   const getCategoryIcon = (cat: string) => {
+    if (cat.includes('Ăn') || cat.includes('Cơm')) {
+      return <img src="./icons/food.png" alt="Cơm" className="w-5 h-5 object-contain" />;
+    }
+    if (cat.includes('Mua') || cat.includes('Sắm')) {
+      return <img src="./icons/spending.png" alt="Chi tiêu" className="w-5 h-5 object-contain" />;
+    }
     if (cat.includes('Cà phê')) return <Coffee size={15} />;
-    if (cat.includes('Ăn') || cat.includes('Cơm')) return <Utensils size={15} />;
     if (cat.includes('Grab') || cat.includes('Xăng')) return <Bus size={15} />;
-    return <ShoppingBag size={15} />;
+    return <img src="./icons/spending.png" alt="Chi tiêu" className="w-5 h-5 object-contain" />;
   };
 
   return (
@@ -255,10 +248,10 @@ export default function App() {
               sounds.playKeypadTap();
               setIsSettingsOpen(true);
             }}
-            className="w-10 h-10 rounded-full bg-white border border-neutral-200/90 shadow-sm flex items-center justify-center text-sm font-black active:scale-90 transition-transform cursor-pointer"
+            className="w-10 h-10 rounded-full bg-white border border-neutral-200/90 shadow-sm flex items-center justify-center text-sm font-black active:scale-90 transition-transform cursor-pointer overflow-hidden p-1"
             title="Hồ sơ & Cài đặt"
           >
-            <span>😎</span>
+            <img src="./icons/friends.png" alt="Hồ sơ" className="w-full h-full object-contain" />
           </button>
         </header>
 
@@ -266,8 +259,9 @@ export default function App() {
         <div className="flex-1 space-y-4">
           {activeTab === 'home' && (
             <>
-              {/* THANH CHUYỂN 3 KHÔNG GIAN RIÊNG BIỆT (ANIMATED PILLS) */}
-              <div className="bg-neutral-200/70 p-1 rounded-2xl grid grid-cols-3 gap-1 shadow-inner">
+              {/* THANH CHUYỂN 3 KHÔNG GIAN VỚI ICON 3D VOXEL */}
+              <div className="bg-neutral-200/70 p-1.5 rounded-2xl grid grid-cols-3 gap-1 shadow-inner">
+                {/* 1. Tab Ví Tiền */}
                 <button
                   type="button"
                   onClick={() => {
@@ -281,10 +275,11 @@ export default function App() {
                       : 'text-neutral-500 hover:text-black scale-95 opacity-80'
                   }`}
                 >
-                  <Wallet size={13} className="text-emerald-600" />
+                  <img src="./icons/wallet.png" alt="Ví Tiền" className="w-5 h-5 object-contain" />
                   <span>Ví Tiền</span>
                 </button>
 
+                {/* 2. Tab LokCam */}
                 <button
                   type="button"
                   onClick={() => {
@@ -298,10 +293,11 @@ export default function App() {
                       : 'text-neutral-500 hover:text-black scale-95 opacity-80'
                   }`}
                 >
-                  <Camera size={13} className="text-amber-500" />
+                  <img src="./icons/camera.png" alt="LokCam" className="w-5 h-5 object-contain" />
                   <span>LokCam</span>
                 </button>
 
+                {/* 3. Tab Nếp Chill */}
                 <button
                   type="button"
                   onClick={() => {
@@ -315,17 +311,17 @@ export default function App() {
                       : 'text-neutral-500 hover:text-black scale-95 opacity-80'
                   }`}
                 >
-                  <Sparkles size={13} className="text-indigo-500" />
+                  <img src="./icons/social.png" alt="Nếp Chill" className="w-5 h-5 object-contain" />
                   <span>Nếp Chill</span>
                 </button>
               </div>
 
-              {/* ----- KHÔNG GIAN 1: VÍ TIỀN & CHI TIÊU NHANH ----- */}
+              {/* ----- KHÔNG GIAN 1: VÍ TIỀN ----- */}
               {hubSection === 'wallet' && (
                 <div className="space-y-4 animate-tab-switch">
                   <ExpenseSummaryCard />
 
-                  {/* 3 NÚT HÀNH ĐỘNG GHI CHÉP CHÍNH */}
+                  {/* 3 NÚT HÀNH ĐỘNG GHI CHÉP */}
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
@@ -354,14 +350,14 @@ export default function App() {
                       onClick={handleOpenKeypad}
                       className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition-transform cursor-pointer"
                     >
-                      <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                        <Users size={16} />
+                      <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
+                        <img src="./icons/friends.png" alt="Chia bill" className="w-5 h-5 object-contain" />
                       </div>
                       <span className="text-[11px] font-black text-neutral-700">Chia Bill</span>
                     </button>
                   </div>
 
-                  {/* DẢI 1-TAP GHI NHANH VỚI PHẢN HỒI CHẠM */}
+                  {/* DẢI 1-TAP GHI NHANH VỚI ICON VOXEL */}
                   <div className="bg-white rounded-3xl p-4 border border-neutral-200/80 shadow-sm space-y-2.5">
                     <div className="flex justify-between items-center px-1">
                       <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
@@ -371,10 +367,10 @@ export default function App() {
                     </div>
                     <div className="grid grid-cols-4 gap-2">
                       {[
-                        { name: 'Cà phê', cost: 30000, icon: '☕' },
-                        { name: 'Cơm trưa', cost: 40000, icon: '🍱' },
-                        { name: 'Xăng/Grab', cost: 30000, icon: '🚗' },
-                        { name: 'Ăn vặt', cost: 20000, icon: '🧋' },
+                        { name: 'Cà phê', cost: 30000, img: './icons/social.png' },
+                        { name: 'Cơm trưa', cost: 40000, img: './icons/food.png' },
+                        { name: 'Mua sắm', cost: 50000, img: './icons/spending.png' },
+                        { name: 'Ví quỹ', cost: 20000, img: './icons/wallet.png' },
                       ].map((item) => (
                         <button
                           key={item.name}
@@ -382,7 +378,7 @@ export default function App() {
                           onClick={() => handleQuickSpend(item.cost, item.name, item.name)}
                           className="py-3 px-1 rounded-2xl bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/70 flex flex-col items-center gap-1 active:scale-90 active:bg-amber-100 transition-all cursor-pointer"
                         >
-                          <span className="text-xl">{item.icon}</span>
+                          <img src={item.img} alt={item.name} className="w-7 h-7 object-contain drop-shadow-sm" />
                           <span className="text-[11px] font-black text-[#18181B]">{item.name}</span>
                           <span className="text-[10px] text-neutral-400 font-bold font-mono">{(item.cost / 1000).toFixed(0)}k</span>
                         </button>
@@ -421,19 +417,20 @@ export default function App() {
                 </div>
               )}
 
-              {/* ----- KHÔNG GIAN 2: MẠNG XÃ HỘI LOKCAM ----- */}
+              {/* ----- KHÔNG GIAN 2: LOKCAM ----- */}
               {hubSection === 'lokcam' && (
                 <div className="animate-tab-switch">
                   <NepMoments />
                 </div>
               )}
 
-              {/* ----- KHÔNG GIAN 3: NẾP CHILL & LỊCH TRÌNH ----- */}
+              {/* ----- KHÔNG GIAN 3: NẾP CHILL ----- */}
               {hubSection === 'chill' && (
                 <div className="space-y-4 animate-tab-switch">
                   <EveningWhisperCard />
 
                   <div className="grid grid-cols-2 gap-3">
+                    {/* NÚT THỰC ĐƠN 3D DÙNG ICON FOOD.PNG */}
                     <button
                       type="button"
                       onClick={() => {
@@ -443,8 +440,8 @@ export default function App() {
                       }}
                       className="bg-[#18181B] text-white p-4 rounded-3xl flex flex-col justify-between text-left active:scale-95 transition-transform h-28 shadow-sm cursor-pointer"
                     >
-                      <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-amber-300">
-                        <Utensils size={16} />
+                      <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center p-1">
+                        <img src="./icons/food.png" alt="Trưa nay ăn gì" className="w-full h-full object-contain" />
                       </div>
                       <div>
                         <span className="text-[10px] text-neutral-400 block uppercase font-bold">Thực đơn 3D</span>
@@ -461,8 +458,8 @@ export default function App() {
                       }}
                       className="bg-white border border-neutral-200/80 p-4 rounded-3xl flex flex-col justify-between text-left active:scale-95 transition-transform h-28 shadow-sm cursor-pointer"
                     >
-                      <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500">
-                        <Moon size={16} />
+                      <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center p-1">
+                        <Moon size={18} className="text-indigo-500" />
                       </div>
                       <div>
                         <span className="text-[10px] text-neutral-400 block uppercase font-bold">Bốc quẻ đêm</span>
@@ -522,7 +519,6 @@ export default function App() {
             </>
           )}
 
-          {/* CÁC TAB ĐƯỢC TẢI LƯỜI (LAZY LOADED TABS) */}
           {activeTab === 'schedule' && (
             <Suspense fallback={<div className="p-8 text-center text-xs text-neutral-400">Đang nạp Lịch trình...</div>}>
               <ScheduleTimeline />
@@ -540,7 +536,7 @@ export default function App() {
           )}
         </div>
 
-        {/* ================= TOAST HOÀN TÁC 1-TAP NỔI ================= */}
+        {/* ================= TOAST HOÀN TÁC ================= */}
         {undoToast && (
           <div className="fixed bottom-24 inset-x-4 max-w-sm mx-auto z-40 bg-[#18181B] text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between border border-white/10 animate-sheet-spring">
             <span className="text-xs font-bold text-neutral-200">
@@ -577,8 +573,8 @@ export default function App() {
               </div>
 
               <div className="bg-white rounded-3xl p-4 border border-neutral-200/80 shadow-sm flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-2xl">
-                  😎
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center p-1.5 shadow-sm">
+                  <img src="./icons/friends.png" alt="Admin" className="w-full h-full object-contain" />
                 </div>
                 <div>
                   <h4 className="text-sm font-black text-[#18181B]">Tâm (Admin)</h4>
@@ -647,19 +643,19 @@ export default function App() {
 
               <div className="text-center pt-2">
                 <span className="text-[10px] font-bold text-neutral-400">
-                  Nếp · Life Hub v3.3 · Giao diện chuyển động mượt
+                  Nếp · Life Hub v3.4 · Pixel 3D Icons
                 </span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Thanh Dock Điều Hướng Dưới Cùng */}
+        {/* Thanh Dock Điều Hướng */}
         <div className="fixed bottom-5 left-0 right-0 max-w-md mx-auto px-4 pointer-events-none z-30">
           <FloatingDock />
         </div>
 
-        {/* CÁC MODAL HỆ THỐNG ĐƯỢC TẢI LƯỜI (LAZY LOADED MODALS) */}
+        {/* CÁC MODAL HỆ THỐNG */}
         <Suspense fallback={null}>
           <QrScannerModal />
           <KeypadModal />
