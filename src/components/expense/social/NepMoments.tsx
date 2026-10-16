@@ -13,14 +13,12 @@ import {
   RotateCcw, 
   Zap,
   Grid,
-  Calendar as CalendarIcon,
-  Sparkles
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import { sounds } from '../../../utils/soundEngine';
 
 import cameraIcon from '../../../assets/icons/camera.png';
 import friendsIcon from '../../../assets/icons/friends.png';
-import socialIcon from '../../../assets/icons/social.png';
 
 export interface LokCamPost {
   id: string;
@@ -31,7 +29,6 @@ export interface LokCamPost {
   timeAgo?: string;
   timestamp: number;
   likes: number;
-  dateStr?: string; // YYYY-MM-DD để gom nhóm theo tháng
 }
 
 export interface FriendProfile {
@@ -57,7 +54,6 @@ const DEFAULT_MOMENTS: LokCamPost[] = [
     timestamp: Date.now() - 15 * 60 * 1000,
     timeAgo: '15 phút trước',
     likes: 4,
-    dateStr: '2026-05-12',
   },
   {
     id: 'm2',
@@ -68,23 +64,21 @@ const DEFAULT_MOMENTS: LokCamPost[] = [
     timestamp: Date.now() - 2 * 60 * 60 * 1000,
     timeAgo: '2 giờ trước',
     likes: 6,
-    dateStr: '2026-05-10',
   },
   {
     id: 'm3',
     author: 'Cạ Cứng',
     avatarEmoji: '🍻',
     image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&auto=format&fit=crop&q=80',
-    caption: 'Cuối tuần làm cốc bia giải nhiệt 🍺',
+    caption: 'Cuối tuần làm cốc cà phê đá giải nhiệt ☕',
     timestamp: Date.now() - 15 * 24 * 60 * 60 * 1000,
     timeAgo: '15 ngày trước',
     likes: 8,
-    dateStr: '2026-04-28',
   },
 ];
 
 export const NepMoments: React.FC = () => {
-  // 3 CHẾ ĐỘ XEM CHUẨN LOCKET: 'camera' | 'feed' | 'memories'
+  // 3 CHẾ ĐỘ XEM: 'camera' | 'feed' | 'memories'
   const [activeScreen, setActiveScreen] = useState<'camera' | 'feed' | 'memories'>('camera');
 
   const [moments, setMoments] = useState<LokCamPost[]>(() => {
@@ -129,7 +123,6 @@ export const NepMoments: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // KHỞI TẠO CAMERA KHI Ở MÀN HÌNH CHỤP
   useEffect(() => {
     const stopStream = () => {
       if (streamRef.current) {
@@ -232,7 +225,6 @@ export const NepMoments: React.FC = () => {
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(
       now.getMinutes()
     ).padStart(2, '0')} Hôm nay`;
-    const todayStr = now.toISOString().split('T')[0];
 
     const newPost: LokCamPost = {
       id: `lok_${Date.now()}`,
@@ -243,7 +235,6 @@ export const NepMoments: React.FC = () => {
       timeAgo: timeStr,
       timestamp: Date.now(),
       likes: 1,
-      dateStr: todayStr,
     };
 
     const updated = [newPost, ...moments];
@@ -255,7 +246,7 @@ export const NepMoments: React.FC = () => {
     setIsPublishing(false);
     setCapturedImage(null);
     setCaption('');
-    setActiveScreen('feed'); // Đăng xong vào xem Dòng thời gian
+    setActiveScreen('feed');
   };
 
   const handleLike = (item: LokCamPost) => {
@@ -270,7 +261,6 @@ export const NepMoments: React.FC = () => {
     ? moments 
     : moments.filter(m => m.author === selectedFriendFilter);
 
-  // GOM NHÓM ẢNH THEO THÁNG CHO MÀN HÌNH KỶ NIỆM (ẢNH 2)
   const groupedMemories = moments.reduce((acc: { [key: string]: LokCamPost[] }, post) => {
     const d = new Date(post.timestamp || Date.now());
     const monthKey = `tháng ${d.getMonth() + 1} ${d.getFullYear()}`;
@@ -280,9 +270,9 @@ export const NepMoments: React.FC = () => {
   }, {});
 
   return (
-    <div className="relative w-full max-w-sm mx-auto h-[calc(100dvh-175px)] min-h-[530px] bg-[#0D0D11] text-white rounded-[38px] shadow-2xl border border-white/10 overflow-hidden flex flex-col select-none">
+    <div className="flex-1 w-full flex flex-col justify-between overflow-hidden bg-[#0D0D11] text-white rounded-[36px] shadow-2xl border border-white/10 select-none relative">
       
-      {/* ================= THANH ĐỈNH ĐẦU (TOP BAR CỐ ĐỊNH) ================= */}
+      {/* ================= THANH TOP BAR (CỐ ĐỊNH) ================= */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2 shrink-0 border-b border-white/5 bg-[#0D0D11]/90 backdrop-blur-md z-20">
         <button
           type="button"
@@ -308,24 +298,25 @@ export const NepMoments: React.FC = () => {
           type="button"
           onClick={() => {
             try { sounds?.playKeypadTap?.(); } catch {}
-            setActiveScreen('memories');
+            setActiveScreen(prev => prev === 'memories' ? 'camera' : 'memories');
           }}
           className={`w-8 h-8 rounded-full flex items-center justify-center transition cursor-pointer ${
             activeScreen === 'memories' ? 'bg-amber-400 text-black' : 'bg-white/10 text-white hover:bg-white/20'
           }`}
-          title="Xem Kỷ niệm dạng Lưới"
+          title="Kỷ niệm"
         >
           <Grid size={15} />
         </button>
       </div>
 
-      {/* ================= NỘI DUNG CUỘN RIÊNG BIỆT (KHÔNG LÀM TRÔI TOÀN TRANG) ================= */}
-      <div className="flex-1 overflow-y-auto no-scrollbar px-3 pt-2 pb-24">
-        
-        {/* ---------------- 1. MÀN HÌNH CAMERA LIVE (CHUẨN LOCKET) ---------------- */}
+      {/* ================= KHUNG NỘI DUNG CHÍNH (KHÔNG BAO GIỜ BỊ TRÔI TRANG) ================= */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+
+        {/* 1. MÀN HÌNH CAMERA LIVE */}
         {activeScreen === 'camera' && (
-          <div className="h-full flex flex-col justify-between py-1 space-y-3">
-            <div className="relative w-full aspect-square rounded-[34px] overflow-hidden bg-neutral-900 border border-white/15 shadow-inner flex items-center justify-center">
+          <div className="flex-1 flex flex-col justify-between items-center py-2 px-3 overflow-hidden">
+            {/* KHUNG NGẮM VUÔNG CHUẨN LOCKET (TỰ CO GIÃN VỪA KHÍT MÀN HÌNH) */}
+            <div className="w-full flex-1 max-h-[340px] aspect-square rounded-[34px] overflow-hidden bg-neutral-900 border border-white/15 shadow-inner relative flex items-center justify-center shrink-0 my-auto">
               <div className="absolute top-3 left-3 z-10 w-7 h-7 rounded-full bg-black/45 backdrop-blur-md flex items-center justify-center text-amber-300">
                 <Zap size={13} className="fill-amber-300" />
               </div>
@@ -354,15 +345,16 @@ export const NepMoments: React.FC = () => {
                     placeholder="Gõ lời nhắn gửi bạn bè..."
                     value={caption}
                     onChange={(e) => setCaption(e.target.value)}
-                    className="w-full bg-black/70 backdrop-blur-md border border-white/20 rounded-2xl px-3 py-2 text-xs font-bold text-white text-center placeholder-neutral-400 focus:outline-none shadow-lg"
+                    className="w-full bg-black/75 backdrop-blur-md border border-white/20 rounded-2xl px-3 py-2 text-xs font-bold text-white text-center placeholder-neutral-400 focus:outline-none shadow-lg"
                     autoFocus
                   />
                 </div>
               )}
             </div>
 
+            {/* BỘ NÚT CHỤP ẢNH */}
             {!capturedImage ? (
-              <div className="flex items-center justify-around py-2 px-2">
+              <div className="w-full flex items-center justify-around py-2 px-4 shrink-0">
                 <label className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center cursor-pointer active:scale-90 transition">
                   <ImageIcon size={18} className="text-white" />
                   <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
@@ -385,7 +377,7 @@ export const NepMoments: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 px-1">
+              <div className="w-full grid grid-cols-2 gap-2 py-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setCapturedImage(null)}
@@ -408,11 +400,10 @@ export const NepMoments: React.FC = () => {
           </div>
         )}
 
-        {/* ---------------- 2. MÀN HÌNH DÒNG THỜI GIAN (FEED - ĐÃ KHẮC PHỤC CHE DOCK) ---------------- */}
+        {/* 2. MÀN HÌNH FEED (CHỈ CUỘN NỘI BỘ, KHÔNG TRÔI TRANG) */}
         {activeScreen === 'feed' && (
-          <div className="space-y-4 pt-1 animate-tab-switch">
-            {/* Lọc bạn bè */}
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+          <div className="flex-1 overflow-y-auto no-scrollbar px-3 pt-2 pb-16 space-y-4">
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setSelectedFriendFilter('all')}
@@ -437,8 +428,7 @@ export const NepMoments: React.FC = () => {
               ))}
             </div>
 
-            {/* Danh sách ảnh */}
-            <div className="space-y-3.5">
+            <div className="space-y-4">
               {filteredMoments.map((item) => (
                 <div key={item.id} className="space-y-2">
                   <div className="relative w-full aspect-square rounded-[30px] overflow-hidden bg-neutral-900 border border-white/10 shadow-lg">
@@ -471,7 +461,6 @@ export const NepMoments: React.FC = () => {
               ))}
             </div>
 
-            {/* Thanh phản hồi cảm xúc nhanh */}
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-2 flex items-center justify-between border border-white/10">
               <input
                 type="text"
@@ -499,9 +488,9 @@ export const NepMoments: React.FC = () => {
           </div>
         )}
 
-        {/* ---------------- 3. MÀN HÌNH LƯỚI KỶ NIỆM (MEMORIES GRID - Y HỆT ẢNH 2) ---------------- */}
+        {/* 3. MÀN HÌNH LƯỚI KỶ NIỆM (CHỈ CUỘN NỘI BỘ) */}
         {activeScreen === 'memories' && (
-          <div className="space-y-4 pt-1 animate-tab-switch">
+          <div className="flex-1 overflow-y-auto no-scrollbar px-3 pt-2 pb-16 space-y-4">
             <div className="flex items-center justify-between px-1">
               <h3 className="text-sm font-black text-white flex items-center gap-1.5">
                 <CalendarIcon size={14} className="text-amber-400" /> Kỷ niệm
@@ -511,16 +500,13 @@ export const NepMoments: React.FC = () => {
               </span>
             </div>
 
-            {/* Gom nhóm theo từng tháng */}
             {Object.keys(groupedMemories).map((monthLabel) => (
               <div key={monthLabel} className="bg-white/5 rounded-3xl p-3.5 border border-white/10 space-y-3">
                 <span className="text-xs font-black text-neutral-300 uppercase tracking-wide block px-1">
                   {monthLabel}
                 </span>
 
-                {/* Ma trận Lưới 5 Cột chuẩn Locket */}
                 <div className="grid grid-cols-5 gap-2">
-                  {/* Hiển thị các ô có ảnh */}
                   {groupedMemories[monthLabel].map((post) => (
                     <div
                       key={post.id}
@@ -531,12 +517,8 @@ export const NepMoments: React.FC = () => {
                     </div>
                   ))}
 
-                  {/* Các ô trống (Chấm Dot vi lượng như Ảnh 2) */}
                   {Array.from({ length: Math.max(0, 15 - groupedMemories[monthLabel].length) }).map((_, i) => (
-                    <div
-                      key={`empty_${i}`}
-                      className="aspect-square rounded-2xl flex items-center justify-center"
-                    >
+                    <div key={`empty_${i}`} className="aspect-square rounded-2xl flex items-center justify-center">
                       <span className="w-1.5 h-1.5 rounded-full bg-white/15" />
                     </div>
                   ))}
@@ -548,57 +530,54 @@ export const NepMoments: React.FC = () => {
 
       </div>
 
-      {/* ================= THANH ĐIỀU HƯỚNG LOKCAM 3 NÚT (SUB-DOCK CỐ ĐỊNH Ở ĐÁY) ================= */}
-      <div className="absolute inset-x-4 bottom-3 z-30 flex justify-center">
-        <div className="bg-[#18181F]/90 backdrop-blur-xl border border-white/15 rounded-full p-1.5 flex items-center gap-1 shadow-2xl">
-          {/* Nút 1: Lưới Kỷ niệm */}
+      {/* ================= THANH ĐIỀU HƯỚNG LOKCAM (CỐ ĐỊNH Ở ĐÁY KHUNG ĐEN) ================= */}
+      <div className="px-3 pb-3 pt-1 shrink-0 flex justify-center z-20 bg-[#0D0D11]/90 backdrop-blur-md border-t border-white/5">
+        <div className="bg-[#18181F] border border-white/15 rounded-full p-1.5 flex items-center gap-1 shadow-2xl">
           <button
             type="button"
             onClick={() => {
               try { sounds?.playKeypadTap?.(); } catch {}
               setActiveScreen('memories');
             }}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
               activeScreen === 'memories' ? 'bg-amber-400 text-black font-black' : 'text-neutral-400 hover:text-white'
             }`}
             title="Lưới Kỷ niệm"
           >
-            <Grid size={17} />
+            <Grid size={16} />
           </button>
 
-          {/* Nút 2: Camera Chính */}
           <button
             type="button"
             onClick={() => {
               try { sounds?.playKeypadTap?.(); } catch {}
               setActiveScreen('camera');
             }}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
               activeScreen === 'camera' ? 'bg-amber-400 text-black font-black' : 'text-neutral-400 hover:text-white'
             }`}
             title="Mở Camera"
           >
-            <Camera size={17} />
+            <Camera size={16} />
           </button>
 
-          {/* Nút 3: Dòng thời gian Feed */}
           <button
             type="button"
             onClick={() => {
               try { sounds?.playKeypadTap?.(); } catch {}
               setActiveScreen('feed');
             }}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
               activeScreen === 'feed' ? 'bg-amber-400 text-black font-black' : 'text-neutral-400 hover:text-white'
             }`}
             title="Dòng thời gian"
           >
-            <MessageCircle size={17} />
+            <MessageCircle size={16} />
           </button>
         </div>
       </div>
 
-      {/* ================= MODAL XEM CHI TIẾT KHI BẤM VÀO ẢNH TRONG LƯỚI ================= */}
+      {/* MODAL CHI TIẾT */}
       {selectedPostDetail && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-tab-switch">
           <div className="w-full max-w-xs bg-[#18181B] rounded-[32px] p-4 text-white border border-white/15 space-y-3 shadow-2xl">
@@ -607,7 +586,7 @@ export const NepMoments: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedPostDetail(null)}
-                className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white"
+                className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white cursor-pointer"
               >
                 <X size={14} />
               </button>
@@ -622,7 +601,7 @@ export const NepMoments: React.FC = () => {
         </div>
       )}
 
-      {/* ================= MODAL BẠN BÈ ================= */}
+      {/* MODAL BẠN BÈ */}
       {isFriendModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-tab-switch">
           <div className="w-full max-w-sm bg-[#18181B] rounded-t-[36px] sm:rounded-[36px] p-6 shadow-2xl relative border border-white/10 animate-sheet-spring max-h-[88vh] overflow-y-auto no-scrollbar space-y-4 text-white">

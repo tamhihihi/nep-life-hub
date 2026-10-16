@@ -14,10 +14,10 @@ import {
   X, 
   QrCode, 
   Calculator, 
-  ChevronRight,
-  RotateCcw,
-  LogOut,
-  ShieldCheck
+  ChevronRight, 
+  RotateCcw, 
+  LogOut, 
+  ShieldCheck 
 } from 'lucide-react';
 import { useAppStore } from './stores/useAppStore';
 import { ExpenseSummaryCard } from './components/expense/ExpenseSummaryCard';
@@ -38,7 +38,7 @@ import friendsIcon from './assets/icons/friends.png';
 import socialIcon from './assets/icons/social.png';
 import spendingIcon from './assets/icons/spending.png';
 
-// TẢI TRỄ CÁC MODAL VÀ TAB NẶNG
+// TẢI TRỄ CÁC MODAL VÀ TAB NẶNG ĐỂ MỞ APP TỨC THÌ
 const QrScannerModal = lazy(() =>
   import('./components/expense/QrScannerModal').then((m) => ({ default: (m as any).QrScannerModal || (m as any).default }))
 );
@@ -97,15 +97,13 @@ export default function App() {
     }
   });
 
-  // QUẢN LÝ TRẠNG THÁI HIỂN THỊ ONBOARDING CHO NGƯỜI MỚI
+  // KIỂM TRA ONBOARDING TÀI KHOẢN MỚI
   const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
     try {
       const savedUser = localStorage.getItem('nep_user_session_v1');
       if (savedUser) {
         const u = JSON.parse(savedUser);
-        if (u?.id) {
-          return !localStorage.getItem(`nep_onboarded_${u.id}`);
-        }
+        if (u?.id) return !localStorage.getItem(`nep_onboarded_${u.id}`);
       }
       return false;
     } catch {
@@ -123,6 +121,9 @@ export default function App() {
   );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // BIẾN KIỂM TRA ĐANG Ở TAB LOKCAM
+  const isLokCamActive = activeTab === 'home' && hubSection === 'lokcam';
 
   const now = new Date();
   const weekdays = ['CHỦ NHẬT', 'THỨ HAI', 'THỨ BA', 'THỨ TƯ', 'THỨ NĂM', 'THỨ SÁU', 'THỨ BẢY'];
@@ -152,7 +153,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // XỬ LÝ ĐĂNG NHẬP GOOGLE THÀNH CÔNG
   const handleLoginSuccess = async (user: GoogleUser) => {
     setCurrentUser(user);
     localStorage.setItem('nep_user_session_v1', JSON.stringify(user));
@@ -161,14 +161,12 @@ export default function App() {
     const isAlreadyOnboarded = localStorage.getItem(onboardKey);
 
     if (!isAlreadyOnboarded) {
-      // TÀI KHOẢN MỚI: Reset toàn bộ danh sách giao dịch về rỗng (0đ)
       useAppStore.setState({ transactions: [] });
       if (typeof (store as any).setTransactions === 'function') {
         (store as any).setTransactions([]);
       }
       setShowOnboarding(true);
     } else {
-      // TÀI KHOẢN CŨ: Tải lại dữ liệu đã lưu từ Cloud
       try {
         const savedData = await userDataSync.loadUserData(user.id);
         if (savedData) {
@@ -182,11 +180,9 @@ export default function App() {
     }
   };
 
-  // HOÀN THÀNH ONBOARDING LẦN ĐẦU
   const handleCompleteOnboarding = (initialLimit: number) => {
     if (!currentUser) return;
 
-    // 1. Cập nhật hạn mức người dùng vừa nhập và reset sạch giao dịch về 0
     useAppStore.setState({
       monthlyLimit: initialLimit,
       transactions: [],
@@ -199,10 +195,8 @@ export default function App() {
       (store as any).setTransactions([]);
     }
 
-    // 2. Đánh dấu đã onboarding cho User ID này
     localStorage.setItem(`nep_onboarded_${currentUser.id}`, 'true');
 
-    // 3. Đồng bộ dữ liệu sạch này lên Cloud
     try {
       userDataSync.syncUserData(currentUser.id, {
         transactions: [],
@@ -382,17 +376,21 @@ export default function App() {
     return <img src={spendingIcon} alt="Chi tiêu" className="w-5 h-5 object-contain" />;
   };
 
-  // NẾU CHƯA ĐĂNG NHẬP GOOGLE -> VÀO THẲNG MÀN HÌNH ĐĂNG NHẬP
   if (!currentUser) {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F8F7] text-[#18181B] font-sans flex flex-col justify-between selection:bg-neutral-200">
-      <main className="w-full max-w-md mx-auto min-h-screen flex flex-col px-4 pt-6 pb-36">
+    <div className={`min-h-screen bg-[#F8F8F7] text-[#18181B] font-sans flex flex-col justify-between selection:bg-neutral-200 ${isLokCamActive ? 'h-[100dvh] overflow-hidden' : ''}`}>
+      {/* KHUNG CHÍNH: KHI Ở LOKCAM KHÓA CỐ ĐỊNH 100DVH, KHÔNG THỂ BỊ CUỘN TRÔI TRANG */}
+      <main className={`w-full max-w-md mx-auto flex flex-col px-4 pt-4 ${
+        isLokCamActive
+          ? 'h-[100dvh] overflow-hidden pb-3'
+          : 'min-h-screen pb-36'
+      }`}>
         
         {/* ================= HEADER TỐI GIẢN ================= */}
-        <header className="flex justify-between items-center mb-4 px-1">
+        <header className="flex justify-between items-center mb-3 px-1 shrink-0">
           <div>
             <span className="text-[10px] font-black tracking-wider uppercase text-neutral-400">
               {currentWeekday} · {currentDateLabel}
@@ -420,12 +418,12 @@ export default function App() {
           </button>
         </header>
 
-        {/* ================= NỘI DUNG CHÍNH THEO TAB DOCK ================= */}
-        <div className="flex-1 space-y-4">
+        {/* ================= NỘI DUNG CHÍNH ================= */}
+        <div className={`flex-1 flex flex-col min-h-0 ${isLokCamActive ? 'overflow-hidden' : 'space-y-4'}`}>
           {activeTab === 'home' && (
             <>
-              {/* THANH CHUYỂN 3 KHÔNG GIAN DÙNG ICON VOXEL */}
-              <div className="bg-neutral-200/70 p-1.5 rounded-2xl grid grid-cols-3 gap-1 shadow-inner">
+              {/* THANH CHUYỂN 3 KHÔNG GIAN DÙNG ICON VOXEL (CỐ ĐỊNH Ở TRÊN ĐỂ ĐỔI TAB DỄ DÀNG) */}
+              <div className="bg-neutral-200/70 p-1.5 rounded-2xl grid grid-cols-3 gap-1 shadow-inner shrink-0 mb-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -483,7 +481,6 @@ export default function App() {
                 <div className="space-y-4 animate-tab-switch">
                   <ExpenseSummaryCard />
 
-                  {/* 3 NÚT HÀNH ĐỘNG GỌN GÀNG, KHÔNG BỊ TRÙNG LẶP */}
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
@@ -519,7 +516,6 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* DẢI 1-TAP GHI NHANH VỚI ICON VOXEL */}
                   <div className="bg-white rounded-3xl p-4 border border-neutral-200/80 shadow-sm space-y-2.5">
                     <div className="flex justify-between items-center px-1">
                       <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
@@ -548,7 +544,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* GIAO DỊCH GẦN ĐÂY */}
                   <div className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-200/80 divide-y divide-neutral-100">
                     <div className="flex justify-between items-center pb-2 px-1">
                       <span className="text-xs font-black text-neutral-700">Giao dịch mới nhất</span>
@@ -579,9 +574,9 @@ export default function App() {
                 </div>
               )}
 
-              {/* ----- KHÔNG GIAN 2: LOKCAM ----- */}
+              {/* ----- KHÔNG GIAN 2: LOKCAM (VỪA VẶN HOÀN TOÀN KHÔNG BỊ TRÔI) ----- */}
               {hubSection === 'lokcam' && (
-                <div className="animate-tab-switch">
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden animate-tab-switch">
                   <NepMoments />
                 </div>
               )}
@@ -832,12 +827,13 @@ export default function App() {
           </div>
         )}
 
-        {/* Thanh Dock Điều Hướng Dưới Cùng */}
-        <div className="fixed bottom-5 left-0 right-0 max-w-md mx-auto px-4 pointer-events-none z-30">
-          <FloatingDock />
-        </div>
+        {/* ================= THANH DOCK ĐÁY: ẨN HOÀN TOÀN KHI VÀO LOKCAM ================= */}
+        {!isLokCamActive && (
+          <div className="fixed bottom-5 left-0 right-0 max-w-md mx-auto px-4 pointer-events-none z-30 transition-all duration-300">
+            <FloatingDock />
+          </div>
+        )}
 
-        {/* HƯỚNG DẪN DÀNH RIÊNG CHO TÀI KHOẢN ĐĂNG NHẬP LẦN ĐẦU */}
         {showOnboarding && currentUser && (
           <OnboardingModal
             userName={currentUser.name}
@@ -845,7 +841,6 @@ export default function App() {
           />
         )}
 
-        {/* CÁC MODAL HỆ THỐNG */}
         <Suspense fallback={null}>
           <QrScannerModal />
           <KeypadModal />
