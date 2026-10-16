@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, Suspense, lazy } from 'react';
 import { 
   Utensils, 
   Moon, 
@@ -25,21 +25,39 @@ import {
 } from 'lucide-react';
 import { useAppStore } from './stores/useAppStore';
 import { ExpenseSummaryCard } from './components/expense/ExpenseSummaryCard';
-import { QrScannerModal } from './components/expense/QrScannerModal';
-import { KeypadModal } from './components/expense/KeypadModal';
-import { TransactionHistory } from './components/expense/TransactionHistory';
-import { ReportView } from './components/expense/ReportView';
-import { ScheduleTimeline } from './components/schedule/ScheduleTimeline';
-import { AddScheduleModal } from './components/schedule/AddScheduleModal';
-import { CsgoFoodRoulette } from './components/food/CsgoFoodRoulette';
-import { TarotCardFlip } from './components/evening/TarotCardFlip';
 import { FloatingDock } from './components/common/FloatingDock';
 import { EveningWhisperCard } from './components/evening/EveningWhisperCard';
 import { NepMoments } from './components/expense/social/NepMoments';
 import { notifier } from './utils/notificationService';
 import { sounds } from './utils/soundEngine';
 
-// Rung xúc giác chuẩn Haptic cho điện thoại (tự động bỏ qua nếu là máy tính)
+// TẢI TRỄ (LAZY LOADING) CÁC MODAL VÀ TAB NẶNG ĐỂ MỞ APP TỨC THÌ
+const QrScannerModal = lazy(() =>
+  import('./components/expense/QrScannerModal').then((m) => ({ default: (m as any).QrScannerModal || (m as any).default }))
+);
+const KeypadModal = lazy(() =>
+  import('./components/expense/KeypadModal').then((m) => ({ default: (m as any).KeypadModal || (m as any).default }))
+);
+const TransactionHistory = lazy(() =>
+  import('./components/expense/TransactionHistory').then((m) => ({ default: (m as any).TransactionHistory || (m as any).default }))
+);
+const ReportView = lazy(() =>
+  import('./components/expense/ReportView').then((m) => ({ default: (m as any).ReportView || (m as any).default }))
+);
+const ScheduleTimeline = lazy(() =>
+  import('./components/schedule/ScheduleTimeline').then((m) => ({ default: (m as any).ScheduleTimeline || (m as any).default }))
+);
+const AddScheduleModal = lazy(() =>
+  import('./components/schedule/AddScheduleModal').then((m) => ({ default: (m as any).AddScheduleModal || (m as any).default }))
+);
+const CsgoFoodRoulette = lazy(() =>
+  import('./components/food/CsgoFoodRoulette').then((m) => ({ default: (m as any).CsgoFoodRoulette || (m as any).default }))
+);
+const TarotCardFlip = lazy(() =>
+  import('./components/evening/TarotCardFlip').then((m) => ({ default: (m as any).TarotCardFlip || (m as any).default }))
+);
+
+// Rung phản hồi Haptic nhẹ nhàng chuẩn iOS
 const triggerHaptic = (type: 'light' | 'medium' | 'success' = 'light') => {
   if (typeof window !== 'undefined' && 'vibrate' in navigator) {
     if (type === 'light') navigator.vibrate(12);
@@ -154,7 +172,7 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  // Nút tắt 1-Tap ghi nhanh + Rung Haptic + Hiện nút Hoàn Tác
+  // Nút tắt 1-Tap ghi nhanh + Rung Haptic + Hoàn tác
   const handleQuickSpend = (amount: number, category: string, note: string) => {
     triggerHaptic('medium');
     sounds.playKeypadTap();
@@ -504,9 +522,22 @@ export default function App() {
             </>
           )}
 
-          {activeTab === 'schedule' && <ScheduleTimeline />}
-          {activeTab === 'history' && <TransactionHistory />}
-          {activeTab === 'report' && <ReportView />}
+          {/* CÁC TAB ĐƯỢC TẢI LƯỜI (LAZY LOADED TABS) */}
+          {activeTab === 'schedule' && (
+            <Suspense fallback={<div className="p-8 text-center text-xs text-neutral-400">Đang nạp Lịch trình...</div>}>
+              <ScheduleTimeline />
+            </Suspense>
+          )}
+          {activeTab === 'history' && (
+            <Suspense fallback={<div className="p-8 text-center text-xs text-neutral-400">Đang nạp Lịch sử...</div>}>
+              <TransactionHistory />
+            </Suspense>
+          )}
+          {activeTab === 'report' && (
+            <Suspense fallback={<div className="p-8 text-center text-xs text-neutral-400">Đang nạp Báo cáo...</div>}>
+              <ReportView />
+            </Suspense>
+          )}
         </div>
 
         {/* ================= TOAST HOÀN TÁC 1-TAP NỔI ================= */}
@@ -628,12 +659,14 @@ export default function App() {
           <FloatingDock />
         </div>
 
-        {/* CÁC MODAL HỆ THỐNG */}
-        <QrScannerModal />
-        <KeypadModal />
-        <AddScheduleModal />
-        <CsgoFoodRoulette />
-        <TarotCardFlip />
+        {/* CÁC MODAL HỆ THỐNG ĐƯỢC TẢI LƯỜI (LAZY LOADED MODALS) */}
+        <Suspense fallback={null}>
+          <QrScannerModal />
+          <KeypadModal />
+          <AddScheduleModal />
+          <CsgoFoodRoulette />
+          <TarotCardFlip />
+        </Suspense>
       </main>
     </div>
   );
