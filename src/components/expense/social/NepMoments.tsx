@@ -6,20 +6,21 @@ import {
   X, 
   RefreshCw, 
   Image as ImageIcon, 
-  Trash2,
   Share2, 
   Check, 
   Copy, 
-  Users, 
   ChevronDown, 
   MessageCircle, 
   RotateCcw, 
-  Zap,
-  Sparkles
+  Zap
 } from 'lucide-react';
 import { sounds } from '../../../utils/soundEngine';
 
-// ================= KIỂU DỮ LIỆU & CẤU HÌNH REALTIME =================
+// IMPORT TRỰC TIẾP TỪ THƯ MỤC ASSETS ĐỂ TRÁNH LỖI ĐƯỜNG DẪN 404
+import cameraIcon from '../../../assets/icons/camera.png';
+import friendsIcon from '../../../assets/icons/friends.png';
+import socialIcon from '../../../assets/icons/social.png';
+
 export interface LokCamPost {
   id: string;
   author: string;
@@ -37,41 +38,6 @@ export interface FriendProfile {
   avatar: string;
   isMe?: boolean;
 }
-
-// Thay bằng URL Realtime Database của bạn nếu có, hoặc để trống app vẫn chạy offline mượt mà
-const FIREBASE_RTDB_URL = '';
-
-// Hiệu ứng pháo hoa an toàn (không gây lỗi build nếu thiếu thư viện canvas-confetti)
-const triggerSafeConfetti = () => {
-  try {
-    if (typeof window !== 'undefined' && (window as any).confetti) {
-      (window as any).confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
-    }
-  } catch {}
-};
-
-// VOXEL ICON HELPER TỰ BẢO VỆ CHỐNG VỠ HÌNH
-const VoxelIcon: React.FC<{
-  name: 'wallet' | 'camera' | 'food' | 'friends' | 'social' | 'spending';
-  className?: string;
-  fallback: React.ReactNode;
-}> = ({ name, className = 'w-5 h-5 object-contain', fallback }) => {
-  const [error, setError] = useState(false);
-  const baseUrl = (import.meta as any).env?.BASE_URL || './';
-  const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-  const src = `${cleanBase}icons/${name}.png`;
-
-  if (error) return <>{fallback}</>;
-  return (
-    <img
-      src={src}
-      alt={name}
-      className={className}
-      onError={() => setError(true)}
-      loading="lazy"
-    />
-  );
-};
 
 const DEFAULT_FRIENDS: FriendProfile[] = [
   { id: 'f_me', name: 'Tôi (Tâm)', avatar: '😎', isMe: true },
@@ -147,58 +113,7 @@ export const NepMoments: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // 1. TẢI DỮ LIỆU REALTIME AN TOÀN
-  useEffect(() => {
-    if (!FIREBASE_RTDB_URL) return;
-
-    fetch(`${FIREBASE_RTDB_URL}/lokcam_posts.json?limitToLast=20`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!data) return;
-        const cloudPosts: LokCamPost[] = Object.keys(data).map((key) => ({
-          id: key,
-          ...data[key],
-        }));
-        if (cloudPosts.length > 0) {
-          setMoments((prev) => {
-            const merged = [...cloudPosts];
-            prev.forEach((p) => {
-              if (!merged.some((m) => m.id === p.id)) merged.push(p);
-            });
-            const sorted = merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-            localStorage.setItem('nep_lokcam_moments_v3', JSON.stringify(sorted));
-            return sorted;
-          });
-        }
-      })
-      .catch(() => {});
-
-    // Lắng nghe SSE
-    try {
-      const es = new EventSource(`${FIREBASE_RTDB_URL}/lokcam_posts.json`);
-      es.addEventListener('put', (event: MessageEvent) => {
-        try {
-          const payload = JSON.parse(event.data);
-          if (payload.path && payload.path !== '/' && payload.data) {
-            const id = payload.path.replace('/', '');
-            const newPost: LokCamPost = { id, ...payload.data };
-            setMoments((prev) => {
-              if (prev.some((p) => p.id === newPost.id)) return prev;
-              try { sounds?.playChime?.(); } catch {}
-              if ('vibrate' in navigator) navigator.vibrate([20, 50, 20]);
-              triggerSafeConfetti();
-              const updated = [newPost, ...prev];
-              localStorage.setItem('nep_lokcam_moments_v3', JSON.stringify(updated));
-              return updated;
-            });
-          }
-        } catch {}
-      });
-      return () => es.close();
-    } catch {}
-  }, []);
-
-  // 2. TỰ ĐỘNG BẮT LINK KẾT BẠN
+  // Tự động nhận diện link kết bạn
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
@@ -216,7 +131,7 @@ export const NepMoments: React.FC = () => {
     }
   }, []);
 
-  // KHỞI ĐỘNG CAMERA
+  // Khởi động Camera
   useEffect(() => {
     const stopStream = () => {
       if (streamRef.current) {
@@ -265,7 +180,7 @@ export const NepMoments: React.FC = () => {
     };
   }, [activeScreen, facingMode, capturedImage]);
 
-  // NÉN ẢNH VUÔNG CHUẨN LOCKET (480x480)
+  // Nén ảnh vuông 480x480
   const handleCapture = () => {
     if (!videoRef.current) return;
     try { sounds?.playKeypadTap?.(); } catch {}
@@ -312,8 +227,7 @@ export const NepMoments: React.FC = () => {
     img.src = url;
   };
 
-  // ĐĂNG ẢNH VÀO LOKCAM
-  const handlePublish = async () => {
+  const handlePublish = () => {
     if (!capturedImage || isPublishing) return;
     setIsPublishing(true);
 
@@ -322,7 +236,8 @@ export const NepMoments: React.FC = () => {
       now.getMinutes()
     ).padStart(2, '0')} Hôm nay`;
 
-    const postPayload = {
+    const newPost: LokCamPost = {
+      id: `lok_${Date.now()}`,
       author: myProfile.name,
       avatarEmoji: myProfile.avatar,
       image: capturedImage,
@@ -332,30 +247,11 @@ export const NepMoments: React.FC = () => {
       likes: 1,
     };
 
-    let finalId = `lok_${Date.now()}`;
-
-    // Đẩy lên Firebase nếu có cấu hình
-    if (FIREBASE_RTDB_URL) {
-      try {
-        const res = await fetch(`${FIREBASE_RTDB_URL}/lokcam_posts.json`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(postPayload),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.name) finalId = data.name;
-        }
-      } catch {}
-    }
-
-    const newPost: LokCamPost = { id: finalId, ...postPayload };
     const updated = [newPost, ...moments];
     setMoments(updated);
     localStorage.setItem('nep_lokcam_moments_v3', JSON.stringify(updated));
 
     try { sounds?.playChime?.(); } catch {}
-    triggerSafeConfetti();
 
     setIsPublishing(false);
     setCapturedImage(null);
@@ -369,20 +265,6 @@ export const NepMoments: React.FC = () => {
     const updated = moments.map((m) => (m.id === item.id ? { ...m, likes: m.likes + 1 } : m));
     setMoments(updated);
     localStorage.setItem('nep_lokcam_moments_v3', JSON.stringify(updated));
-
-    if (FIREBASE_RTDB_URL) {
-      fetch(`${FIREBASE_RTDB_URL}/lokcam_posts/${item.id}/likes.json`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(item.likes + 1),
-      }).catch(() => {});
-    }
-  };
-
-  const handleSendQuickReaction = () => {
-    try { sounds?.playKeypadTap?.(); } catch {}
-    if ('vibrate' in navigator) navigator.vibrate(12);
-    triggerSafeConfetti();
   };
 
   const getInviteUrl = () => {
@@ -421,7 +303,7 @@ export const NepMoments: React.FC = () => {
           onClick={() => setIsFriendModalOpen(true)}
           className="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 flex items-center gap-1.5 active:scale-95 transition cursor-pointer"
         >
-          <VoxelIcon name="friends" className="w-4 h-4 object-contain" fallback={<span className="text-xs">🔥</span>} />
+          <img src={friendsIcon} alt="Bạn thân" className="w-4 h-4 object-contain" />
           <span className="text-xs font-black tracking-wide text-neutral-200">
             {friends.length} bạn thân
           </span>
@@ -441,9 +323,9 @@ export const NepMoments: React.FC = () => {
           title={activeScreen === 'camera' ? 'Xem Lịch sử' : 'Mở Camera'}
         >
           {activeScreen === 'camera' ? (
-            <VoxelIcon name="social" className="w-5 h-5 object-contain" fallback={<MessageCircle size={16} />} />
+            <img src={socialIcon} alt="Lịch sử" className="w-5 h-5 object-contain" />
           ) : (
-            <VoxelIcon name="camera" className="w-5 h-5 object-contain" fallback={<Camera size={16} />} />
+            <img src={cameraIcon} alt="Camera" className="w-5 h-5 object-contain" />
           )}
         </button>
       </div>
@@ -633,34 +515,19 @@ export const NepMoments: React.FC = () => {
               className="bg-transparent text-xs text-white placeholder-neutral-400 px-2 py-1 flex-1 focus:outline-none"
             />
             <div className="flex items-center gap-2 pr-1">
-              <button 
-                type="button" 
-                onClick={handleSendQuickReaction} 
-                className="text-base active:scale-125 transition cursor-pointer"
-              >
-                🔥
-              </button>
-              <button 
-                type="button" 
-                onClick={handleSendQuickReaction} 
-                className="text-base active:scale-125 transition cursor-pointer"
-              >
-                ❤️
-              </button>
-              <button 
-                type="button" 
-                onClick={handleSendQuickReaction} 
-                className="text-base active:scale-125 transition cursor-pointer"
-              >
-                ☕
-              </button>
-              <button 
-                type="button" 
-                onClick={handleSendQuickReaction} 
-                className="text-base active:scale-125 transition cursor-pointer"
-              >
-                🍱
-              </button>
+              {['🔥', '❤️', '☕', '🍱'].map((emoji) => (
+                <button 
+                  key={emoji}
+                  type="button" 
+                  onClick={() => {
+                    try { sounds?.playKeypadTap?.(); } catch {}
+                    if ('vibrate' in navigator) navigator.vibrate(12);
+                  }} 
+                  className="text-base active:scale-125 transition cursor-pointer"
+                >
+                  {emoji}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -670,7 +537,7 @@ export const NepMoments: React.FC = () => {
               onClick={() => setActiveScreen('camera')}
               className="inline-flex items-center gap-1.5 text-xs font-black text-amber-400 hover:text-amber-300 transition cursor-pointer active:scale-95"
             >
-              <VoxelIcon name="camera" className="w-4 h-4 object-contain" fallback={<Camera size={14} />} />
+              <img src={cameraIcon} alt="Camera" className="w-4 h-4 object-contain" />
               <span>Chụp khoảnh khắc mới</span>
             </button>
           </div>
@@ -692,7 +559,7 @@ export const NepMoments: React.FC = () => {
               </button>
 
               <div className="inline-flex items-center gap-2 text-amber-400 font-black text-base">
-                <VoxelIcon name="friends" className="w-6 h-6 object-contain" fallback={<span>🔥</span>} />
+                <img src={friendsIcon} alt="Bạn thân" className="w-6 h-6 object-contain" />
                 <span>{friends.length} bạn thân</span>
               </div>
               <p className="text-[11px] text-neutral-400 font-medium">

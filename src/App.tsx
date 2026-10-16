@@ -8,7 +8,6 @@ import {
   Bell, 
   BellRing, 
   Bus, 
-  Coffee,
   Download, 
   Upload, 
   Sparkles, 
@@ -25,6 +24,14 @@ import { EveningWhisperCard } from './components/evening/EveningWhisperCard';
 import { NepMoments } from './components/expense/social/NepMoments';
 import { notifier } from './utils/notificationService';
 import { sounds } from './utils/soundEngine';
+
+// IMPORT TRỰC TIẾP 6 ICON TỪ SRC/ASSETS/ICONS/ (VITE TỰ ĐÓNG GÓI CHUẨN 100%)
+import walletIcon from './assets/icons/wallet.png';
+import cameraIcon from './assets/icons/camera.png';
+import foodIcon from './assets/icons/food.png';
+import friendsIcon from './assets/icons/friends.png';
+import socialIcon from './assets/icons/social.png';
+import spendingIcon from './assets/icons/spending.png';
 
 // TẢI TRỄ CÁC MODAL VÀ TAB NẶNG
 const QrScannerModal = lazy(() =>
@@ -216,14 +223,16 @@ export default function App() {
 
   const getCategoryIcon = (cat: string) => {
     if (cat.includes('Ăn') || cat.includes('Cơm')) {
-      return <img src="./icons/food.png" alt="Cơm" className="w-5 h-5 object-contain" />;
+      return <img src={foodIcon} alt="Cơm" className="w-5 h-5 object-contain" />;
     }
     if (cat.includes('Mua') || cat.includes('Sắm')) {
-      return <img src="./icons/spending.png" alt="Chi tiêu" className="w-5 h-5 object-contain" />;
+      return <img src={spendingIcon} alt="Mua sắm" className="w-5 h-5 object-contain" />;
     }
-    if (cat.includes('Cà phê')) return <Coffee size={15} />;
+    if (cat.includes('Cà phê')) {
+      return <img src={socialIcon} alt="Cà phê" className="w-5 h-5 object-contain" />;
+    }
     if (cat.includes('Grab') || cat.includes('Xăng')) return <Bus size={15} />;
-    return <img src="./icons/spending.png" alt="Chi tiêu" className="w-5 h-5 object-contain" />;
+    return <img src={spendingIcon} alt="Chi tiêu" className="w-5 h-5 object-contain" />;
   };
 
   return (
@@ -248,10 +257,10 @@ export default function App() {
               sounds.playKeypadTap();
               setIsSettingsOpen(true);
             }}
-            className="w-10 h-10 rounded-full bg-white border border-neutral-200/90 shadow-sm flex items-center justify-center text-sm font-black active:scale-90 transition-transform cursor-pointer overflow-hidden p-1"
+            className="w-10 h-10 rounded-full bg-white border border-neutral-200/90 shadow-sm flex items-center justify-center text-sm font-black active:scale-90 transition-transform cursor-pointer overflow-hidden p-1.5"
             title="Hồ sơ & Cài đặt"
           >
-            <img src="./icons/friends.png" alt="Hồ sơ" className="w-full h-full object-contain" />
+            <img src={friendsIcon} alt="Hồ sơ" className="w-full h-full object-contain" />
           </button>
         </header>
 
@@ -259,9 +268,8 @@ export default function App() {
         <div className="flex-1 space-y-4">
           {activeTab === 'home' && (
             <>
-              {/* THANH CHUYỂN 3 KHÔNG GIAN VỚI ICON 3D VOXEL */}
+              {/* THANH CHUYỂN 3 KHÔNG GIAN DÙNG ICON VOXEL */}
               <div className="bg-neutral-200/70 p-1.5 rounded-2xl grid grid-cols-3 gap-1 shadow-inner">
-                {/* 1. Tab Ví Tiền */}
                 <button
                   type="button"
                   onClick={() => {
@@ -275,11 +283,10 @@ export default function App() {
                       : 'text-neutral-500 hover:text-black scale-95 opacity-80'
                   }`}
                 >
-                  <img src="./icons/wallet.png" alt="Ví Tiền" className="w-5 h-5 object-contain" />
+                  <img src={walletIcon} alt="Ví Tiền" className="w-5 h-5 object-contain" />
                   <span>Ví Tiền</span>
                 </button>
 
-                {/* 2. Tab LokCam */}
                 <button
                   type="button"
                   onClick={() => {
@@ -293,11 +300,10 @@ export default function App() {
                       : 'text-neutral-500 hover:text-black scale-95 opacity-80'
                   }`}
                 >
-                  <img src="./icons/camera.png" alt="LokCam" className="w-5 h-5 object-contain" />
+                  <img src={cameraIcon} alt="LokCam" className="w-5 h-5 object-contain" />
                   <span>LokCam</span>
                 </button>
 
-                {/* 3. Tab Nếp Chill */}
                 <button
                   type="button"
                   onClick={() => {
@@ -311,7 +317,7 @@ export default function App() {
                       : 'text-neutral-500 hover:text-black scale-95 opacity-80'
                   }`}
                 >
-                  <img src="./icons/social.png" alt="Nếp Chill" className="w-5 h-5 object-contain" />
+                  <img src={socialIcon} alt="Nếp Chill" className="w-5 h-5 object-contain" />
                   <span>Nếp Chill</span>
                 </button>
               </div>
@@ -350,8 +356,8 @@ export default function App() {
                       onClick={handleOpenKeypad}
                       className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition-transform cursor-pointer"
                     >
-                      <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
-                        <img src="./icons/friends.png" alt="Chia bill" className="w-5 h-5 object-contain" />
+                      <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center p-1.5">
+                        <img src={friendsIcon} alt="Chia bill" className="w-full h-full object-contain" />
                       </div>
                       <span className="text-[11px] font-black text-neutral-700">Chia Bill</span>
                     </button>
@@ -367,10 +373,10 @@ export default function App() {
                     </div>
                     <div className="grid grid-cols-4 gap-2">
                       {[
-                        { name: 'Cà phê', cost: 30000, img: './icons/social.png' },
-                        { name: 'Cơm trưa', cost: 40000, img: './icons/food.png' },
-                        { name: 'Mua sắm', cost: 50000, img: './icons/spending.png' },
-                        { name: 'Ví quỹ', cost: 20000, img: './icons/wallet.png' },
+                        { name: 'Cà phê', cost: 30000, img: socialIcon },
+                        { name: 'Cơm trưa', cost: 40000, img: foodIcon },
+                        { name: 'Mua sắm', cost: 50000, img: spendingIcon },
+                        { name: 'Ví quỹ', cost: 20000, img: walletIcon },
                       ].map((item) => (
                         <button
                           key={item.name}
@@ -430,7 +436,6 @@ export default function App() {
                   <EveningWhisperCard />
 
                   <div className="grid grid-cols-2 gap-3">
-                    {/* NÚT THỰC ĐƠN 3D DÙNG ICON FOOD.PNG */}
                     <button
                       type="button"
                       onClick={() => {
@@ -440,8 +445,8 @@ export default function App() {
                       }}
                       className="bg-[#18181B] text-white p-4 rounded-3xl flex flex-col justify-between text-left active:scale-95 transition-transform h-28 shadow-sm cursor-pointer"
                     >
-                      <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center p-1">
-                        <img src="./icons/food.png" alt="Trưa nay ăn gì" className="w-full h-full object-contain" />
+                      <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center p-1.5">
+                        <img src={foodIcon} alt="Trưa nay ăn gì" className="w-full h-full object-contain" />
                       </div>
                       <div>
                         <span className="text-[10px] text-neutral-400 block uppercase font-bold">Thực đơn 3D</span>
@@ -573,8 +578,8 @@ export default function App() {
               </div>
 
               <div className="bg-white rounded-3xl p-4 border border-neutral-200/80 shadow-sm flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center p-1.5 shadow-sm">
-                  <img src="./icons/friends.png" alt="Admin" className="w-full h-full object-contain" />
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center p-2 shadow-sm">
+                  <img src={friendsIcon} alt="Admin" className="w-full h-full object-contain" />
                 </div>
                 <div>
                   <h4 className="text-sm font-black text-[#18181B]">Tâm (Admin)</h4>
