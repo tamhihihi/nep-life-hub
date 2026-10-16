@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import { sounds } from '../../../utils/soundEngine';
 
-import cameraIcon from '../../../assets/icons/camera.png';
 import friendsIcon from '../../../assets/icons/friends.png';
 
 export interface LokCamPost {
@@ -70,7 +69,7 @@ const DEFAULT_MOMENTS: LokCamPost[] = [
     author: 'Cạ Cứng',
     avatarEmoji: '🍻',
     image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&auto=format&fit=crop&q=80',
-    caption: 'Cuối tuần làm cốc cà phê đá giải nhiệt ☕',
+    caption: 'Cuối tuần làm cốc cà phê giải nhiệt ☕',
     timestamp: Date.now() - 15 * 24 * 60 * 60 * 1000,
     timeAgo: '15 ngày trước',
     likes: 8,
@@ -78,7 +77,6 @@ const DEFAULT_MOMENTS: LokCamPost[] = [
 ];
 
 export const NepMoments: React.FC = () => {
-  // 3 CHẾ ĐỘ XEM: 'camera' | 'feed' | 'memories'
   const [activeScreen, setActiveScreen] = useState<'camera' | 'feed' | 'memories'>('camera');
 
   const [moments, setMoments] = useState<LokCamPost[]>(() => {
@@ -139,7 +137,7 @@ export const NepMoments: React.FC = () => {
     setCameraError(null);
 
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-      setCameraError('Chạm biểu tượng Ảnh góc dưới để chọn ảnh sẵn có trong máy!');
+      setCameraError('Chạm biểu tượng Thư viện ảnh để tải ảnh từ máy lên!');
       return;
     }
 
@@ -171,25 +169,56 @@ export const NepMoments: React.FC = () => {
     };
   }, [activeScreen, facingMode, capturedImage]);
 
+  // HÀM CHỤP ẢNH AN TOÀN TUYỆT ĐỐI CHO CẢ SAFARI VÀ CHROME
   const handleCapture = () => {
-    if (!videoRef.current) return;
     try { sounds?.playKeypadTap?.(); } catch {}
-    if ('vibrate' in navigator) navigator.vibrate(20);
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(30);
+    }
 
     const video = videoRef.current;
-    const canvas = document.createElement('canvas');
-    const size = 480;
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!video) {
+      console.warn('Video element chưa sẵn sàng');
+      return;
+    }
 
-    const minDim = Math.min(video.videoWidth || 480, video.videoHeight || 480);
-    const sx = ((video.videoWidth || 480) - minDim) / 2;
-    const sy = ((video.videoHeight || 480) - minDim) / 2;
+    try {
+      const canvas = document.createElement('canvas');
+      const targetSize = 640;
+      canvas.width = targetSize;
+      canvas.height = targetSize;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-    ctx.drawImage(video, sx, sy, minDim, minDim, 0, 0, size, size);
-    setCapturedImage(canvas.toDataURL('image/jpeg', 0.65));
+      const vw = video.videoWidth || 0;
+      const vh = video.videoHeight || 0;
+
+      if (vw > 0 && vh > 0) {
+        // Cắt vuông từ tâm video chính xác
+        const minDim = Math.min(vw, vh);
+        const sx = (vw - minDim) / 2;
+        const sy = (vh - minDim) / 2;
+        
+        // Nếu là camera trước thì lật ngược canvas để ảnh không bị ngược gương
+        if (facingMode === 'user') {
+          ctx.translate(targetSize, 0);
+          ctx.scale(-1, 1);
+        }
+        
+        ctx.drawImage(video, sx, sy, minDim, minDim, 0, 0, targetSize, targetSize);
+      } else {
+        // Luồng dự phòng khi videoWidth chưa kịp cập nhật số đo
+        ctx.drawImage(video, 0, 0, targetSize, targetSize);
+      }
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      if (dataUrl && dataUrl.length > 200) {
+        setCapturedImage(dataUrl);
+        try { sounds?.playChime?.(); } catch {}
+      }
+    } catch (err) {
+      console.error('Lỗi khi chụp ảnh:', err);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -202,7 +231,7 @@ export const NepMoments: React.FC = () => {
     img.onload = () => {
       URL.revokeObjectURL(url);
       const canvas = document.createElement('canvas');
-      const size = 480;
+      const size = 640;
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext('2d');
@@ -212,7 +241,7 @@ export const NepMoments: React.FC = () => {
       const sx = (img.width - minDim) / 2;
       const sy = (img.height - minDim) / 2;
       ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
-      setCapturedImage(canvas.toDataURL('image/jpeg', 0.65));
+      setCapturedImage(canvas.toDataURL('image/jpeg', 0.85));
     };
     img.src = url;
   };
@@ -309,13 +338,13 @@ export const NepMoments: React.FC = () => {
         </button>
       </div>
 
-      {/* ================= KHUNG NỘI DUNG CHÍNH (KHÔNG BAO GIỜ BỊ TRÔI TRANG) ================= */}
+      {/* ================= KHUNG NỘI DUNG CHÍNH ================= */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
 
         {/* 1. MÀN HÌNH CAMERA LIVE */}
         {activeScreen === 'camera' && (
           <div className="flex-1 flex flex-col justify-between items-center py-2 px-3 overflow-hidden">
-            {/* KHUNG NGẮM VUÔNG CHUẨN LOCKET (TỰ CO GIÃN VỪA KHÍT MÀN HÌNH) */}
+            {/* KHUNG NGẮM VUÔNG CHUẨN LOCKET */}
             <div className="w-full flex-1 max-h-[340px] aspect-square rounded-[34px] overflow-hidden bg-neutral-900 border border-white/15 shadow-inner relative flex items-center justify-center shrink-0 my-auto">
               <div className="absolute top-3 left-3 z-10 w-7 h-7 rounded-full bg-black/45 backdrop-blur-md flex items-center justify-center text-amber-300">
                 <Zap size={13} className="fill-amber-300" />
@@ -352,55 +381,61 @@ export const NepMoments: React.FC = () => {
               )}
             </div>
 
-            {/* BỘ NÚT CHỤP ẢNH */}
+            {/* BỘ NÚT ĐIỀU KHIỂN & NÚT CHỤP TO RÕ CHUẨN 80PX */}
             {!capturedImage ? (
-              <div className="w-full flex items-center justify-around py-2 px-4 shrink-0">
-                <label className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center cursor-pointer active:scale-90 transition">
-                  <ImageIcon size={18} className="text-white" />
+              <div className="w-full flex items-center justify-around py-2 px-4 shrink-0 z-10">
+                <label 
+                  className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/15 active:scale-90 flex items-center justify-center cursor-pointer transition touch-manipulation"
+                  title="Chọn ảnh từ máy"
+                >
+                  <ImageIcon size={20} className="text-white" />
                   <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
                 </label>
 
+                {/* NÚT CHỤP CHÍNH (ĐÃ SỬA KÍCH THƯỚC W-20 H-20 CỐ ĐỊNH, DỄ BẤM TRÊN MỌI MÀN HÌNH) */}
                 <button
                   type="button"
                   onClick={handleCapture}
-                  className="w-18 h-18 rounded-full border-[3px] border-amber-400 p-1 flex items-center justify-center active:scale-90 transition cursor-pointer shadow-lg shadow-amber-500/10"
+                  className="w-20 h-20 rounded-full border-4 border-amber-400 p-1.5 flex items-center justify-center active:scale-90 transition-transform cursor-pointer shadow-xl shadow-amber-500/25 touch-manipulation"
+                  title="Chụp ảnh ngay"
                 >
-                  <div className="w-full h-full rounded-full bg-white active:bg-amber-200 transition" />
+                  <div className="w-full h-full rounded-full bg-white active:bg-amber-200 transition-colors shadow-inner" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')}
-                  className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center active:scale-90 transition cursor-pointer"
+                  className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/15 active:scale-90 flex items-center justify-center transition cursor-pointer touch-manipulation"
+                  title="Đổi camera"
                 >
-                  <RefreshCw size={18} className="text-white" />
+                  <RefreshCw size={20} className="text-white" />
                 </button>
               </div>
             ) : (
-              <div className="w-full grid grid-cols-2 gap-2 py-2 shrink-0">
+              <div className="w-full grid grid-cols-2 gap-2 py-2 shrink-0 z-10">
                 <button
                   type="button"
                   onClick={() => setCapturedImage(null)}
                   disabled={isPublishing}
-                  className="py-3 rounded-2xl bg-white/15 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer"
+                  className="py-3.5 rounded-2xl bg-white/15 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer"
                 >
-                  <RotateCcw size={13} /> Chụp lại
+                  <RotateCcw size={14} /> Chụp lại
                 </button>
 
                 <button
                   type="button"
                   onClick={handlePublish}
                   disabled={isPublishing}
-                  className="py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition cursor-pointer"
+                  className="py-3.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition cursor-pointer"
                 >
-                  <Send size={13} /> {isPublishing ? 'Đang gửi...' : 'Bắn lên LokCam'}
+                  <Send size={14} /> {isPublishing ? 'Đang gửi...' : 'Bắn lên LokCam'}
                 </button>
               </div>
             )}
           </div>
         )}
 
-        {/* 2. MÀN HÌNH FEED (CHỈ CUỘN NỘI BỘ, KHÔNG TRÔI TRANG) */}
+        {/* 2. MÀN HÌNH FEED */}
         {activeScreen === 'feed' && (
           <div className="flex-1 overflow-y-auto no-scrollbar px-3 pt-2 pb-16 space-y-4">
             <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5 shrink-0">
@@ -488,7 +523,7 @@ export const NepMoments: React.FC = () => {
           </div>
         )}
 
-        {/* 3. MÀN HÌNH LƯỚI KỶ NIỆM (CHỈ CUỘN NỘI BỘ) */}
+        {/* 3. MÀN HÌNH LƯỚI KỶ NIỆM */}
         {activeScreen === 'memories' && (
           <div className="flex-1 overflow-y-auto no-scrollbar px-3 pt-2 pb-16 space-y-4">
             <div className="flex items-center justify-between px-1">
@@ -530,7 +565,7 @@ export const NepMoments: React.FC = () => {
 
       </div>
 
-      {/* ================= THANH ĐIỀU HƯỚNG LOKCAM (CỐ ĐỊNH Ở ĐÁY KHUNG ĐEN) ================= */}
+      {/* ================= THANH ĐIỀU HƯỚNG LOKCAM ĐÁY ================= */}
       <div className="px-3 pb-3 pt-1 shrink-0 flex justify-center z-20 bg-[#0D0D11]/90 backdrop-blur-md border-t border-white/5">
         <div className="bg-[#18181F] border border-white/15 rounded-full p-1.5 flex items-center gap-1 shadow-2xl">
           <button
@@ -539,26 +574,31 @@ export const NepMoments: React.FC = () => {
               try { sounds?.playKeypadTap?.(); } catch {}
               setActiveScreen('memories');
             }}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
               activeScreen === 'memories' ? 'bg-amber-400 text-black font-black' : 'text-neutral-400 hover:text-white'
             }`}
             title="Lưới Kỷ niệm"
           >
-            <Grid size={16} />
+            <Grid size={17} />
           </button>
 
+          {/* NÚT CAMERA TRÊN THANH ĐÁY: KHI ĐANG Ở CAMERA THÌ BẤM VÀO ĐÂY CŨNG SẼ CHỤP ĐƯỢC ẢNH */}
           <button
             type="button"
             onClick={() => {
-              try { sounds?.playKeypadTap?.(); } catch {}
-              setActiveScreen('camera');
+              if (activeScreen === 'camera') {
+                handleCapture();
+              } else {
+                try { sounds?.playKeypadTap?.(); } catch {}
+                setActiveScreen('camera');
+              }
             }}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
               activeScreen === 'camera' ? 'bg-amber-400 text-black font-black' : 'text-neutral-400 hover:text-white'
             }`}
-            title="Mở Camera"
+            title={activeScreen === 'camera' ? 'Bấm để chụp' : 'Mở Camera'}
           >
-            <Camera size={16} />
+            <Camera size={17} />
           </button>
 
           <button
@@ -567,12 +607,12 @@ export const NepMoments: React.FC = () => {
               try { sounds?.playKeypadTap?.(); } catch {}
               setActiveScreen('feed');
             }}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
               activeScreen === 'feed' ? 'bg-amber-400 text-black font-black' : 'text-neutral-400 hover:text-white'
             }`}
             title="Dòng thời gian"
           >
-            <MessageCircle size={16} />
+            <MessageCircle size={17} />
           </button>
         </div>
       </div>
