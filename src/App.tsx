@@ -134,13 +134,11 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Xử lý khi đăng nhập Google thành công
   const handleLoginSuccess = (user: GoogleUser) => {
     setCurrentUser(user);
     localStorage.setItem('nep_user_session_v1', JSON.stringify(user));
   };
 
-  // Đăng xuất Google
   const handleLogout = () => {
     triggerHaptic('light');
     try { sounds?.playKeypadTap?.(); } catch {}
@@ -265,7 +263,6 @@ export default function App() {
     return <img src={spendingIcon} alt="Chi tiêu" className="w-5 h-5 object-contain" />;
   };
 
-  // NẾU CHƯA ĐĂNG NHẬP GOOGLE -> HIỂN THỊ CỔNG ĐĂNG NHẬP
   if (!currentUser) {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;
   }
@@ -285,7 +282,6 @@ export default function App() {
             </h1>
           </div>
           
-          {/* AVATAR GOOGLE CỦA NGƯỜI DÙNG */}
           <button
             type="button"
             onClick={() => {
@@ -367,7 +363,7 @@ export default function App() {
                 <div className="space-y-4 animate-tab-switch">
                   <ExpenseSummaryCard />
 
-                  {/* 3 NÚT HÀNH ĐỘNG GHI CHÉP */}
+                  {/* 3 NÚT HÀNH ĐỘNG GHI CHÉP GỌN GÀNG KHÔNG BỊ LẶP LẠI */}
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
@@ -383,23 +379,30 @@ export default function App() {
                     <button
                       type="button"
                       onClick={handleOpenKeypad}
-                      className="p-3 bg-[#18181B] text-white rounded-2xl shadow-sm flex flex-col items-center gap-1 active:scale-95 transition-transform cursor-pointer"
-                    >
-                      <div className="w-8 h-8 rounded-xl bg-white/10 text-white flex items-center justify-center">
-                        <Calculator size={16} />
-                      </div>
-                      <span className="text-[11px] font-black">Ghi nhanh</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleOpenKeypad}
                       className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition-transform cursor-pointer"
                     >
                       <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center p-1.5">
                         <img src={friendsIcon} alt="Chia bill" className="w-full h-full object-contain" />
                       </div>
                       <span className="text-[11px] font-black text-neutral-700">Chia Bill</span>
+                    </button>
+
+                    {/* BÁO CÁO CHI TIÊU - THAY THẾ CHO NÚT GHI NHANH GÂY TRÙNG LẶP */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic('light');
+                        sounds.playKeypadTap();
+                        if (typeof (store as any).setActiveTab === 'function') {
+                          (store as any).setActiveTab('report');
+                        }
+                      }}
+                      className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition-transform cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                        <Calculator size={16} />
+                      </div>
+                      <span className="text-[11px] font-black text-neutral-700">Báo cáo</span>
                     </button>
                   </div>
 
