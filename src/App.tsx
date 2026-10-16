@@ -15,17 +15,20 @@ import {
   QrCode, 
   Calculator, 
   ChevronRight,
-  RotateCcw
+  RotateCcw,
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 import { useAppStore } from './stores/useAppStore';
 import { ExpenseSummaryCard } from './components/expense/ExpenseSummaryCard';
 import { FloatingDock } from './components/common/FloatingDock';
 import { EveningWhisperCard } from './components/evening/EveningWhisperCard';
 import { NepMoments } from './components/expense/social/NepMoments';
+import { LoginView, GoogleUser } from './components/auth/LoginView';
 import { notifier } from './utils/notificationService';
 import { sounds } from './utils/soundEngine';
 
-// IMPORT TRỰC TIẾP 6 ICON TỪ SRC/ASSETS/ICONS/ (VITE TỰ ĐÓNG GÓI CHUẨN 100%)
+// IMPORT TRỰC TIẾP 6 ICON TỪ SRC/ASSETS/ICONS/
 import walletIcon from './assets/icons/wallet.png';
 import cameraIcon from './assets/icons/camera.png';
 import foodIcon from './assets/icons/food.png';
@@ -82,6 +85,16 @@ export default function App() {
     setIsAddScheduleOpen 
   } = store;
 
+  // QUẢN LÝ PHIÊN ĐĂNG NHẬP GOOGLE
+  const [currentUser, setCurrentUser] = useState<GoogleUser | null>(() => {
+    try {
+      const saved = localStorage.getItem('nep_user_session_v1');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [hubSection, setHubSection] = useState<'wallet' | 'lokcam' | 'chill'>('wallet');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [undoToast, setUndoToast] = useState<{ id: string; text: string } | null>(null);
@@ -120,6 +133,23 @@ export default function App() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Xử lý khi đăng nhập Google thành công
+  const handleLoginSuccess = (user: GoogleUser) => {
+    setCurrentUser(user);
+    localStorage.setItem('nep_user_session_v1', JSON.stringify(user));
+  };
+
+  // Đăng xuất Google
+  const handleLogout = () => {
+    triggerHaptic('light');
+    try { sounds?.playKeypadTap?.(); } catch {}
+    if (confirm('Bạn có chắc chắn muốn đăng xuất tài khoản Google?')) {
+      setCurrentUser(null);
+      localStorage.removeItem('nep_user_session_v1');
+      setIsSettingsOpen(false);
+    }
+  };
 
   const handleToggleNotification = async () => {
     triggerHaptic('light');
@@ -235,6 +265,11 @@ export default function App() {
     return <img src={spendingIcon} alt="Chi tiêu" className="w-5 h-5 object-contain" />;
   };
 
+  // NẾU CHƯA ĐĂNG NHẬP GOOGLE -> HIỂN THỊ CỔNG ĐĂNG NHẬP
+  if (!currentUser) {
+    return <LoginView onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#F8F8F7] text-[#18181B] font-sans flex flex-col justify-between selection:bg-neutral-200">
       <main className="w-full max-w-md mx-auto min-h-screen flex flex-col px-4 pt-6 pb-36">
@@ -250,6 +285,7 @@ export default function App() {
             </h1>
           </div>
           
+          {/* AVATAR GOOGLE CỦA NGƯỜI DÙNG */}
           <button
             type="button"
             onClick={() => {
@@ -257,10 +293,14 @@ export default function App() {
               sounds.playKeypadTap();
               setIsSettingsOpen(true);
             }}
-            className="w-10 h-10 rounded-full bg-white border border-neutral-200/90 shadow-sm flex items-center justify-center text-sm font-black active:scale-90 transition-transform cursor-pointer overflow-hidden p-1.5"
-            title="Hồ sơ & Cài đặt"
+            className="w-10 h-10 rounded-full bg-white border border-neutral-300 shadow-sm flex items-center justify-center text-sm font-black active:scale-90 transition-transform cursor-pointer overflow-hidden p-0.5"
+            title="Hồ sơ Google & Cài đặt"
           >
-            <img src={friendsIcon} alt="Hồ sơ" className="w-full h-full object-contain" />
+            {currentUser.picture ? (
+              <img src={currentUser.picture} alt={currentUser.name} className="w-full h-full rounded-full object-cover" />
+            ) : (
+              <img src={friendsIcon} alt="Hồ sơ" className="w-full h-full object-contain p-1" />
+            )}
           </button>
         </header>
 
@@ -557,7 +597,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= MODAL CÀI ĐẶT & HỒ SƠ ================= */}
+        {/* ================= MODAL CÀI ĐẶT & HỒ SƠ GOOGLE ================= */}
         {isSettingsOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-tab-switch">
             <div className="w-full max-w-sm bg-[#F8F8F7] rounded-t-[36px] sm:rounded-[36px] p-6 shadow-2xl relative border border-neutral-200 animate-sheet-spring space-y-4 max-h-[85vh] overflow-y-auto no-scrollbar">
@@ -577,13 +617,18 @@ export default function App() {
                 </button>
               </div>
 
+              {/* KHỐI THÔNG TIN TÀI KHOẢN GOOGLE */}
               <div className="bg-white rounded-3xl p-4 border border-neutral-200/80 shadow-sm flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center p-2 shadow-sm">
-                  <img src={friendsIcon} alt="Admin" className="w-full h-full object-contain" />
+                <div className="w-12 h-12 rounded-2xl bg-neutral-100 border border-neutral-200 flex items-center justify-center overflow-hidden shadow-sm shrink-0">
+                  {currentUser.picture ? (
+                    <img src={currentUser.picture} alt={currentUser.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <img src={friendsIcon} alt="Avatar" className="w-full h-full object-contain p-2" />
+                  )}
                 </div>
-                <div>
-                  <h4 className="text-sm font-black text-[#18181B]">Tâm (Admin)</h4>
-                  <p className="text-[11px] text-neutral-400 font-semibold">Tài khoản cá nhân · Nếp Hub</p>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-black text-[#18181B] truncate">{currentUser.name}</h4>
+                  <p className="text-[11px] text-neutral-400 font-semibold truncate">{currentUser.email}</p>
                 </div>
               </div>
 
@@ -644,18 +689,36 @@ export default function App() {
                   onChange={handleImportBackup}
                   className="hidden"
                 />
+
+                {/* NÚT ĐĂNG XUẤT GOOGLE */}
+                <div 
+                  onClick={handleLogout}
+                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-rose-50 rounded-2xl transition-colors text-rose-600"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                      <LogOut size={16} />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-black">Đăng xuất Google</h5>
+                      <p className="text-[10px] text-rose-400">Thoát tài khoản khỏi phiên hiện tại</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={15} className="text-rose-300" />
+                </div>
               </div>
 
               <div className="text-center pt-2">
-                <span className="text-[10px] font-bold text-neutral-400">
-                  Nếp · Life Hub v3.4 · Pixel 3D Icons
+                <span className="text-[10px] font-bold text-neutral-400 flex items-center justify-center gap-1">
+                  <ShieldCheck size={12} className="text-emerald-600" />
+                  Bảo vệ bởi Google Identity Services
                 </span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Thanh Dock Điều Hướng */}
+        {/* Thanh Dock Điều Hướng Dưới Cùng */}
         <div className="fixed bottom-5 left-0 right-0 max-w-md mx-auto px-4 pointer-events-none z-30">
           <FloatingDock />
         </div>
