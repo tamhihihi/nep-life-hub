@@ -16,14 +16,11 @@ import {
   Camera,
   Wallet,
   Sparkles,
-  Settings,
   X,
   QrCode,
   Calculator,
-  Users2,
-  ChevronRight,
-  TrendingUp,
-  ShieldCheck
+  Users,
+  ChevronRight
 } from 'lucide-react';
 import { useAppStore } from './stores/useAppStore';
 import { ExpenseSummaryCard } from './components/expense/ExpenseSummaryCard';
@@ -42,6 +39,7 @@ import { notifier } from './utils/notificationService';
 import { sounds } from './utils/soundEngine';
 
 export default function App() {
+  const store = useAppStore();
   const { 
     activeTab, 
     scheduleItems, 
@@ -52,11 +50,8 @@ export default function App() {
     setIsFoodOpen, 
     setIsEveningOpen, 
     toggleScheduleItem, 
-    setIsAddScheduleOpen,
-    setIsKeypadOpen,
-    setIsQrOpen,
-    addTransaction
-  } = useAppStore();
+    setIsAddScheduleOpen 
+  } = store;
 
   // 3 Phân vùng hiển thị tại Trang Chủ
   const [hubSection, setHubSection] = useState<'wallet' | 'lokcam' | 'chill'>('wallet');
@@ -143,14 +138,28 @@ export default function App() {
   // Nút tắt ghi nhanh 1-Tap
   const handleQuickSpend = (amount: number, category: string, note: string) => {
     sounds.playKeypadTap();
-    addTransaction({
-      amount,
-      type: 'expense',
-      category,
-      bankName: 'Tiền mặt',
-      note,
-      dateStr: todayStr,
-    });
+    if (typeof (store as any).addTransaction === 'function') {
+      (store as any).addTransaction({
+        amount,
+        type: 'expense',
+        category,
+        bankName: 'Tiền mặt',
+        note,
+        dateStr: todayStr,
+      });
+    }
+  };
+
+  // Kích hoạt mở modal QR hoặc Keypad an toàn
+  const handleOpenScanner = () => {
+    sounds.playKeypadTap();
+    if (typeof (store as any).setIsQrOpen === 'function') (store as any).setIsQrOpen(true);
+    else if (typeof (store as any).setIsScannerOpen === 'function') (store as any).setIsScannerOpen(true);
+  };
+
+  const handleOpenKeypad = () => {
+    sounds.playKeypadTap();
+    if (typeof (store as any).setIsKeypadOpen === 'function') (store as any).setIsKeypadOpen(true);
   };
 
   const getCategoryIcon = (cat: string) => {
@@ -175,7 +184,6 @@ export default function App() {
             </h1>
           </div>
           
-          {/* Nút Avatar / Cài đặt duy nhất */}
           <button
             type="button"
             onClick={() => {
@@ -253,7 +261,7 @@ export default function App() {
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
-                      onClick={() => setIsQrOpen(true)}
+                      onClick={handleOpenScanner}
                       className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
                     >
                       <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
@@ -264,7 +272,7 @@ export default function App() {
 
                     <button
                       type="button"
-                      onClick={() => setIsKeypadOpen(true)}
+                      onClick={handleOpenKeypad}
                       className="p-3 bg-[#18181B] text-white rounded-2xl shadow-sm flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
                     >
                       <div className="w-8 h-8 rounded-xl bg-white/10 text-white flex items-center justify-center">
@@ -275,17 +283,17 @@ export default function App() {
 
                     <button
                       type="button"
-                      onClick={() => setIsKeypadOpen(true)}
+                      onClick={handleOpenKeypad}
                       className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
                     >
                       <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                        <Users2 size={16} />
+                        <Users size={16} />
                       </div>
                       <span className="text-[11px] font-black text-neutral-700">Chia Bill</span>
                     </button>
                   </div>
 
-                  {/* DẢI 1-TAP GHI NHANH MÓN THƯỜNG DÙNG */}
+                  {/* DẢI 1-TAP GHI NHANH */}
                   <div className="bg-white rounded-3xl p-4 border border-neutral-200/80 shadow-sm space-y-2.5">
                     <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">
                       1-Tap · Chạm là ghi
@@ -354,7 +362,6 @@ export default function App() {
                 <div className="space-y-4 animate-ios-fade">
                   <EveningWhisperCard />
 
-                  {/* 2 NÚT THƯ GIÃN */}
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
@@ -385,7 +392,6 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* TUYẾN GA LỊCH TRÌNH */}
                   <div className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-200/80 space-y-2.5">
                     <div className="flex justify-between items-center pb-1">
                       <span className="text-xs font-black text-[#18181B] flex items-center gap-1.5">
@@ -454,7 +460,6 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Thông tin hồ sơ */}
               <div className="bg-white rounded-3xl p-4 border border-neutral-200/80 shadow-sm flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-2xl">
                   😎
@@ -465,9 +470,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Menu Cài đặt chức năng */}
               <div className="bg-white rounded-3xl p-2 border border-neutral-200/80 shadow-sm divide-y divide-neutral-100">
-                {/* Bật/Tắt thông báo */}
                 <div 
                   onClick={handleToggleNotification}
                   className="flex items-center justify-between p-3 cursor-pointer hover:bg-neutral-50 rounded-2xl transition"
@@ -486,7 +489,6 @@ export default function App() {
                   </span>
                 </div>
 
-                {/* Sao lưu dữ liệu */}
                 <div 
                   onClick={handleExportBackup}
                   className="flex items-center justify-between p-3 cursor-pointer hover:bg-neutral-50 rounded-2xl transition"
@@ -503,7 +505,6 @@ export default function App() {
                   <ChevronRight size={15} className="text-neutral-400" />
                 </div>
 
-                {/* Khôi phục dữ liệu */}
                 <div 
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center justify-between p-3 cursor-pointer hover:bg-neutral-50 rounded-2xl transition"
