@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- 1. Nền Titanium Đen Không Gian -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A1A1F" />
+      <stop offset="50%" stop-color="#121215" />
+      <stop offset="100%" stop-color="#09090B" />
+    </linearGradient>
+
+    <!-- 2. Quầng sáng Amber ấm phía sau -->
+    <radialGradient id="auraGlow" cx="50%" cy="50%" r="65%">
+      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.32" />
+      <stop offset="60%" stop-color="#EA580C" stop-opacity="0.10" />
+      <stop offset="100%" stop-color="#09090B" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- 3. Dải màu chuyển tiếp Sunset Gold rực rỡ của chữ N -->
+    <linearGradient id="nGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#EA580C" />
+      <stop offset="35%" stop-color="#F59E0B" />
+      <stop offset="75%" stop-color="#FBBF24" />
+      <stop offset="100%" stop-color="#FEF08A" />
+    </linearGradient>
+
+    <!-- 4. Viền kim loại Bevel phản chiếu ánh sáng Apple -->
+    <linearGradient id="rimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.25" />
+      <stop offset="40%" stop-color="#F59E0B" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.05" />
+    </linearGradient>
+
+    <!-- 5. Hiệu ứng đổ bóng phát sáng Neon (Glow Filter) -->
+    <filter id="neonBlur" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="18" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- KHỐI 1: Bo góc Squircle chuẩn Apple (512x512, rx=116) -->
+  <rect width="512" height="512" rx="116" fill="url(#bgGrad)" />
+
+  <!-- KHỐI 2: Quầng sáng Ambient phát quang từ trung tâm -->
+  <circle cx="256" cy="256" r="210" fill="url(#auraGlow)" />
+
+  <!-- KHỐI 3: Vòng quỹ đạo nhịp sống (Orbit) nét đứt tinh tế -->
+  <circle cx="256" cy="256" r="190" fill="none" stroke="#FFFFFF" stroke-opacity="0.06" stroke-width="2" stroke-dasharray="6 8" />
+
+  <!-- KHỐI 4: Lớp phát sáng phụ (Neon Aura) của chữ N -->
+  <path d="M 166 362 L 166 150 L 346 362 L 346 150" stroke="#F59E0B" stroke-width="52" stroke-linecap="round" stroke-linejoin="round" opacity="0.45" filter="url(#neonBlur)" />
+
+  <!-- KHỐI 5: Biểu tượng Chữ N chính (Dải Sunset Gold sắc nét) -->
+  <path d="M 166 362 L 166 150 L 346 362 L 346 150" stroke="url(#nGrad)" stroke-width="50" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- KHỐI 6: Sống lưng ánh sáng bóng bẩy trên thân chữ N -->
+  <path d="M 166 345 L 166 160 L 346 345" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.3" />
+
+  <!-- KHỐI 7: Ngôi sao lấp lánh LokCam & Nếp Chill (✦ Sparkle) -->
+  <g transform="translate(382, 130)">
+    <path d="M 0 -28 Q 0 0 28 0 Q 0 0 0 28 Q 0 0 -28 0 Q 0 0 0 -28 Z" fill="#FDE047" />
+    <circle cx="0" cy="0" r="5" fill="#FFFFFF" />
+  </g>
+
+  <!-- KHỐI 8: Viền vát gương cao cấp quanh mép Icon -->
+  <rect x="3" y="3" width="506" height="506" rx="113" fill="none" stroke="url(#rimGrad)" stroke-width="3" />
+</svg>

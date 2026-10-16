@@ -1,0 +1,19 @@
+{
+  "name": "Nếp · Life Hub",
+  "short_name": "Nếp",
+  "description": "Quản lý chi tiêu, khoảnh khắc LokCam & nhịp sống cá nhân",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F8F8F7",
+  "theme_color": "#F8F8F7",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
