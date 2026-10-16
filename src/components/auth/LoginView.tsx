@@ -20,7 +20,7 @@ interface LoginViewProps {
 }
 
 // Client ID của Google (Bạn có thể cấu hình trong file .env: VITE_GOOGLE_CLIENT_ID)
-const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '1058298492048-sample.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '683909007888-jokd4rlk21oou4q7262q21mkfqflrcve.apps.googleusercontent.com';
 
 // Giải mã JWT Payload từ Google mà không cần cài thêm thư viện
 function parseJwt(token: string) {
