@@ -42,9 +42,9 @@ export default function App() {
   const store = useAppStore();
   const { 
     activeTab, 
-    scheduleItems, 
-    transactions, 
-    monthlyLimit,
+    scheduleItems = [], 
+    transactions = [], 
+    monthlyLimit = 5000000,
     lastActiveTime,
     updateLastActive,
     setIsFoodOpen, 
@@ -73,8 +73,10 @@ export default function App() {
   const todaySchedules = scheduleItems.filter((i) => i.dateStr === todayStr);
 
   useEffect(() => {
-    notifier.checkInactivity(lastActiveTime);
-    updateLastActive();
+    if (typeof updateLastActive === 'function') {
+      notifier.checkInactivity(lastActiveTime);
+      updateLastActive();
+    }
 
     const monthSpent = transactions
       .filter((t) => t.type === 'expense')
@@ -150,16 +152,21 @@ export default function App() {
     }
   };
 
-  // Kích hoạt mở modal QR hoặc Keypad an toàn
+  // Mở Scanner / Keypad an toàn
   const handleOpenScanner = () => {
     sounds.playKeypadTap();
-    if (typeof (store as any).setIsQrOpen === 'function') (store as any).setIsQrOpen(true);
-    else if (typeof (store as any).setIsScannerOpen === 'function') (store as any).setIsScannerOpen(true);
+    if (typeof (store as any).setIsQrOpen === 'function') {
+      (store as any).setIsQrOpen(true);
+    } else if (typeof (store as any).setIsScannerOpen === 'function') {
+      (store as any).setIsScannerOpen(true);
+    }
   };
 
   const handleOpenKeypad = () => {
     sounds.playKeypadTap();
-    if (typeof (store as any).setIsKeypadOpen === 'function') (store as any).setIsKeypadOpen(true);
+    if (typeof (store as any).setIsKeypadOpen === 'function') {
+      (store as any).setIsKeypadOpen(true);
+    }
   };
 
   const getCategoryIcon = (cat: string) => {
@@ -365,7 +372,10 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
-                      onClick={() => setIsFoodOpen(true)}
+                      onClick={() => {
+                        sounds.playKeypadTap();
+                        if (typeof setIsFoodOpen === 'function') setIsFoodOpen(true);
+                      }}
                       className="bg-[#18181B] text-white p-4 rounded-3xl flex flex-col justify-between text-left active:scale-95 transition h-28 shadow-sm cursor-pointer"
                     >
                       <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-amber-300">
@@ -379,7 +389,10 @@ export default function App() {
 
                     <button
                       type="button"
-                      onClick={() => setIsEveningOpen(true)}
+                      onClick={() => {
+                        sounds.playKeypadTap();
+                        if (typeof setIsEveningOpen === 'function') setIsEveningOpen(true);
+                      }}
                       className="bg-white border border-neutral-200/80 p-4 rounded-3xl flex flex-col justify-between text-left active:scale-95 transition h-28 shadow-sm cursor-pointer"
                     >
                       <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500">
@@ -399,7 +412,10 @@ export default function App() {
                       </span>
                       <button
                         type="button"
-                        onClick={() => setIsAddScheduleOpen(true)}
+                        onClick={() => {
+                          sounds.playKeypadTap();
+                          if (typeof setIsAddScheduleOpen === 'function') setIsAddScheduleOpen(true);
+                        }}
                         className="text-[11px] font-bold text-neutral-500 hover:text-black flex items-center gap-0.5 cursor-pointer"
                       >
                         <Plus size={12} /> Thêm ga
@@ -412,7 +428,10 @@ export default function App() {
                       todaySchedules.slice(0, 3).map((item) => (
                         <div
                           key={item.id}
-                          onClick={() => toggleScheduleItem(item.id)}
+                          onClick={() => {
+                            sounds.playKeypadTap();
+                            if (typeof toggleScheduleItem === 'function') toggleScheduleItem(item.id);
+                          }}
                           className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F8F8F7] border border-neutral-200/50 cursor-pointer active:scale-98 transition"
                         >
                           <div className="flex items-center gap-2.5">
