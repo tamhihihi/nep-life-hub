@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { 
   Utensils, 
   Moon, 
@@ -14,7 +14,16 @@ import {
   Download,
   Upload,
   Camera,
-  Home
+  Wallet,
+  Sparkles,
+  Settings,
+  X,
+  QrCode,
+  Calculator,
+  Users2,
+  ChevronRight,
+  TrendingUp,
+  ShieldCheck
 } from 'lucide-react';
 import { useAppStore } from './stores/useAppStore';
 import { ExpenseSummaryCard } from './components/expense/ExpenseSummaryCard';
@@ -30,6 +39,7 @@ import { FloatingDock } from './components/common/FloatingDock';
 import { EveningWhisperCard } from './components/evening/EveningWhisperCard';
 import { NepMoments } from './components/expense/social/NepMoments';
 import { notifier } from './utils/notificationService';
+import { sounds } from './utils/soundEngine';
 
 export default function App() {
   const { 
@@ -42,10 +52,17 @@ export default function App() {
     setIsFoodOpen, 
     setIsEveningOpen, 
     toggleScheduleItem, 
-    setIsAddScheduleOpen 
+    setIsAddScheduleOpen,
+    setIsKeypadOpen,
+    setIsQrOpen,
+    addTransaction
   } = useAppStore();
 
-  const [homeMode, setHomeMode] = useState<'wallet' | 'social'>('wallet');
+  // 3 Phân vùng hiển thị tại Trang Chủ
+  const [hubSection, setHubSection] = useState<'wallet' | 'lokcam' | 'chill'>('wallet');
+
+  // Sheet Cài đặt & Hồ sơ cá nhân
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const [notiEnabled, setNotiEnabled] = useState(
     typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
@@ -57,11 +74,10 @@ export default function App() {
   const weekdays = ['CHỦ NHẬT', 'THỨ HAI', 'THỨ BA', 'THỨ TƯ', 'THỨ NĂM', 'THỨ SÁU', 'THỨ BẢY'];
   const currentWeekday = weekdays[now.getDay()];
   const currentDateLabel = `${now.getDate()} tháng ${now.getMonth() + 1}`;
-
   const todayStr = now.toISOString().split('T')[0];
   const todaySchedules = scheduleItems.filter((i) => i.dateStr === todayStr);
 
-  React.useEffect(() => {
+  useEffect(() => {
     notifier.checkInactivity(lastActiveTime);
     updateLastActive();
 
@@ -81,18 +97,20 @@ export default function App() {
   }, []);
 
   const handleToggleNotification = async () => {
+    sounds.playKeypadTap();
     const granted = await notifier.requestPermission();
     setNotiEnabled(granted);
     if (granted) {
       notifier.send(
         '✨ Đã bật thông báo Nếp',
-        'Bạn sẽ nhận được lời nhắc hạn mức chi tiêu và thông điệp động viên Sáng, Trưa, Tối mỗi ngày.',
+        'Nếp sẽ nhắc nhở hạn mức và gửi lời nhắn động viên mỗi ngày.',
         '✨'
       );
     }
   };
 
   const handleExportBackup = () => {
+    sounds.playChime();
     const rawData = localStorage.getItem('nep_lifehub_v3');
     if (!rawData) return;
     const blob = new Blob([rawData], { type: 'application/json' });
@@ -113,208 +131,300 @@ export default function App() {
         const content = event.target?.result as string;
         JSON.parse(content);
         localStorage.setItem('nep_lifehub_v3', content);
+        sounds.playChime();
         window.location.reload();
       } catch {
-        alert('Tệp sao lưu không hợp lệ!');
+        alert('Tệp sao lưu không đúng định dạng!');
       }
     };
     reader.readAsText(file);
   };
 
+  // Nút tắt ghi nhanh 1-Tap
+  const handleQuickSpend = (amount: number, category: string, note: string) => {
+    sounds.playKeypadTap();
+    addTransaction({
+      amount,
+      type: 'expense',
+      category,
+      bankName: 'Tiền mặt',
+      note,
+      dateStr: todayStr,
+    });
+  };
+
   const getCategoryIcon = (cat: string) => {
-    if (cat.includes('Cà phê')) return <Coffee size={16} />;
-    if (cat.includes('Ăn') || cat.includes('Cơm')) return <Utensils size={16} />;
-    if (cat.includes('Grab') || cat.includes('Xăng')) return <Bus size={16} />;
-    return <ShoppingBag size={16} />;
+    if (cat.includes('Cà phê')) return <Coffee size={15} />;
+    if (cat.includes('Ăn') || cat.includes('Cơm')) return <Utensils size={15} />;
+    if (cat.includes('Grab') || cat.includes('Xăng')) return <Bus size={15} />;
+    return <ShoppingBag size={15} />;
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F7F5] text-[#18181B] font-sans flex flex-col justify-between selection:bg-neutral-200">
-      <main className="w-full max-w-md mx-auto min-h-screen flex flex-col px-4 pt-8 pb-32">
-        <header className="flex justify-between items-end mb-4 px-1">
+    <div className="min-h-screen bg-[#F8F8F7] text-[#18181B] font-sans flex flex-col justify-between selection:bg-neutral-200">
+      <main className="w-full max-w-md mx-auto min-h-screen flex flex-col px-4 pt-6 pb-36">
+        
+        {/* ================= HEADER TỐI GIẢN ================= */}
+        <header className="flex justify-between items-center mb-4 px-1">
           <div>
-            <p className="text-[11px] font-bold text-neutral-400 tracking-wider uppercase">
-              {currentWeekday}
-            </p>
-            <h1 className="text-2xl font-black tracking-tight text-[#18181B]">
-              {currentDateLabel}
+            <span className="text-[10px] font-black tracking-wider uppercase text-neutral-400">
+              {currentWeekday} · {currentDateLabel}
+            </span>
+            <h1 className="text-xl font-black tracking-tight text-[#18181B] flex items-center gap-1.5">
+              Nếp · Life Hub <Sparkles size={14} className="text-amber-500" />
             </h1>
           </div>
           
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={handleExportBackup}
-              className="w-9 h-9 rounded-full bg-white border border-neutral-200/80 text-neutral-500 hover:text-black flex items-center justify-center transition cursor-pointer shadow-sm"
-              title="Tải file sao lưu dữ liệu"
-            >
-              <Download size={15} />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-9 h-9 rounded-full bg-white border border-neutral-200/80 text-neutral-500 hover:text-black flex items-center justify-center transition cursor-pointer shadow-sm"
-              title="Khôi phục dữ liệu từ file"
-            >
-              <Upload size={15} />
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              onChange={handleImportBackup}
-              className="hidden"
-            />
-
-            <button
-              type="button"
-              onClick={handleToggleNotification}
-              className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
-                notiEnabled 
-                  ? 'bg-amber-50 border-amber-300 text-amber-600 shadow-sm' 
-                  : 'bg-white border-neutral-200/80 text-neutral-400 hover:text-black'
-              }`}
-              title={notiEnabled ? 'Thông báo đang bật' : 'Bấm để bật thông báo'}
-            >
-              {notiEnabled ? <BellRing size={16} /> : <Bell size={16} />}
-            </button>
-          </div>
+          {/* Nút Avatar / Cài đặt duy nhất */}
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playKeypadTap();
+              setIsSettingsOpen(true);
+            }}
+            className="w-10 h-10 rounded-full bg-white border border-neutral-200/90 shadow-sm flex items-center justify-center text-sm font-black active:scale-90 transition cursor-pointer"
+            title="Hồ sơ & Cài đặt"
+          >
+            <span>😎</span>
+          </button>
         </header>
 
+        {/* ================= NỘI DUNG CHÍNH THEO TAB DOCK ================= */}
         <div className="flex-1 space-y-4">
           {activeTab === 'home' && (
             <>
-              {/* Nút chuyển đổi Trạm Ví và Locket */}
-              <div className="bg-white p-1 rounded-2xl border border-neutral-200/80 shadow-sm grid grid-cols-2 gap-1">
+              {/* THANH CHUYỂN 3 KHÔNG GIAN RIÊNG BIỆT (SEGMENTED CONTROL) */}
+              <div className="bg-neutral-200/70 p-1 rounded-2xl grid grid-cols-3 gap-1 shadow-inner">
                 <button
                   type="button"
-                  onClick={() => setHomeMode('wallet')}
-                  className={`py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                    homeMode === 'wallet'
-                      ? 'bg-[#18181B] text-white shadow-sm'
+                  onClick={() => {
+                    sounds.playKeypadTap();
+                    setHubSection('wallet');
+                  }}
+                  className={`py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                    hubSection === 'wallet'
+                      ? 'bg-white text-[#18181B] shadow-sm'
                       : 'text-neutral-500 hover:text-black'
                   }`}
                 >
-                  <Home size={14} /> Trạm Ví & Lịch
+                  <Wallet size={13} className="text-emerald-600" />
+                  <span>Ví Tiền</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setHomeMode('social')}
-                  className={`py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                    homeMode === 'social'
-                      ? 'bg-[#18181B] text-white shadow-sm'
+                  onClick={() => {
+                    sounds.playKeypadTap();
+                    setHubSection('lokcam');
+                  }}
+                  className={`py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                    hubSection === 'lokcam'
+                      ? 'bg-white text-[#18181B] shadow-sm'
                       : 'text-neutral-500 hover:text-black'
                   }`}
                 >
-                  <Camera size={14} className="text-amber-500" /> Nếp Moments
+                  <Camera size={13} className="text-amber-500" />
+                  <span>LokCam</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    sounds.playKeypadTap();
+                    setHubSection('chill');
+                  }}
+                  className={`py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                    hubSection === 'chill'
+                      ? 'bg-white text-[#18181B] shadow-sm'
+                      : 'text-neutral-500 hover:text-black'
+                  }`}
+                >
+                  <Sparkles size={13} className="text-indigo-500" />
+                  <span>Nếp Chill</span>
                 </button>
               </div>
 
-              {homeMode === 'social' ? (
-                <NepMoments />
-              ) : (
-                <>
-                  <EveningWhisperCard />
+              {/* ----- KHÔNG GIAN 1: VÍ TIỀN & CHI TIÊU NHANH ----- */}
+              {hubSection === 'wallet' && (
+                <div className="space-y-4 animate-ios-fade">
                   <ExpenseSummaryCard />
 
+                  {/* 3 NÚT HÀNH ĐỘNG GHI CHÉP CHÍNH */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsQrOpen(true)}
+                      className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                        <QrCode size={16} />
+                      </div>
+                      <span className="text-[11px] font-black text-neutral-700">Quét VietQR</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsKeypadOpen(true)}
+                      className="p-3 bg-[#18181B] text-white rounded-2xl shadow-sm flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-white/10 text-white flex items-center justify-center">
+                        <Calculator size={16} />
+                      </div>
+                      <span className="text-[11px] font-black">Ghi nhanh</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsKeypadOpen(true)}
+                      className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <Users2 size={16} />
+                      </div>
+                      <span className="text-[11px] font-black text-neutral-700">Chia Bill</span>
+                    </button>
+                  </div>
+
+                  {/* DẢI 1-TAP GHI NHANH MÓN THƯỜNG DÙNG */}
+                  <div className="bg-white rounded-3xl p-4 border border-neutral-200/80 shadow-sm space-y-2.5">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">
+                      1-Tap · Chạm là ghi
+                    </span>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[
+                        { name: 'Cà phê', cost: 30000, icon: '☕' },
+                        { name: 'Cơm trưa', cost: 40000, icon: '🍱' },
+                        { name: 'Xăng/Grab', cost: 30000, icon: '🚗' },
+                        { name: 'Ăn vặt', cost: 20000, icon: '🧋' },
+                      ].map((item) => (
+                        <button
+                          key={item.name}
+                          type="button"
+                          onClick={() => handleQuickSpend(item.cost, item.name, item.name)}
+                          className="p-2 rounded-2xl bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/60 flex flex-col items-center gap-0.5 active:scale-90 transition cursor-pointer"
+                        >
+                          <span className="text-base">{item.icon}</span>
+                          <span className="text-[11px] font-extrabold text-[#18181B]">{item.name}</span>
+                          <span className="text-[9px] text-neutral-400 font-mono">{(item.cost / 1000).toFixed(0)}k</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* GIAO DỊCH GẦN ĐÂY */}
+                  <div className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-200/80 divide-y divide-neutral-100">
+                    <div className="flex justify-between items-center pb-2 px-1">
+                      <span className="text-xs font-black text-neutral-700">Giao dịch mới nhất</span>
+                      <span className="text-[10px] font-semibold text-neutral-400 font-mono">{transactions.length} khoản</span>
+                    </div>
+
+                    {transactions.length === 0 ? (
+                      <p className="text-xs text-neutral-400 py-3 text-center">Chưa có khoản chi nào</p>
+                    ) : (
+                      transactions.slice(0, 3).map((tx) => (
+                        <div key={tx.id} className="flex items-center justify-between py-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-700">
+                              {getCategoryIcon(tx.category)}
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-black text-[#18181B]">{tx.category}</h4>
+                              <p className="text-[10px] text-neutral-400">{tx.note || tx.bankName}</p>
+                            </div>
+                          </div>
+                          <span className={`text-xs font-black font-mono ${tx.type === 'income' ? 'text-emerald-600' : 'text-[#18181B]'}`}>
+                            {tx.type === 'income' ? '+' : '-'}{tx.amount.toLocaleString('vi-VN')}đ
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ----- KHÔNG GIAN 2: MẠNG XÃ HỘI LOKCAM ----- */}
+              {hubSection === 'lokcam' && (
+                <div className="animate-ios-fade">
+                  <NepMoments />
+                </div>
+              )}
+
+              {/* ----- KHÔNG GIAN 3: NẾP CHILL & LỊCH TRÌNH ----- */}
+              {hubSection === 'chill' && (
+                <div className="space-y-4 animate-ios-fade">
+                  <EveningWhisperCard />
+
+                  {/* 2 NÚT THƯ GIÃN */}
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => setIsFoodOpen(true)}
-                      className="bg-[#18181B] text-white p-4 rounded-[26px] flex flex-col justify-between text-left active:scale-[0.95] transition-all duration-200 shadow-sm hover:shadow-md h-32 cursor-pointer gpu-accelerated"
+                      className="bg-[#18181B] text-white p-4 rounded-3xl flex flex-col justify-between text-left active:scale-95 transition h-28 shadow-sm cursor-pointer"
                     >
-                      <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-amber-300">
-                        <Utensils size={18} />
+                      <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-amber-300">
+                        <Utensils size={16} />
                       </div>
                       <div>
-                        <span className="text-[10px] text-neutral-400 block uppercase font-bold tracking-wider">Thực đơn 3D</span>
-                        <span className="text-sm font-black text-white">Ăn gì ta?</span>
+                        <span className="text-[10px] text-neutral-400 block uppercase font-bold">Thực đơn 3D</span>
+                        <span className="text-xs font-black text-white">Trưa nay ăn gì?</span>
                       </div>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setIsEveningOpen(true)}
-                      className="bg-white border border-neutral-200/80 p-4 rounded-[26px] flex flex-col justify-between text-left active:scale-[0.95] transition-all duration-200 shadow-sm hover:shadow-md h-32 cursor-pointer gpu-accelerated"
+                      className="bg-white border border-neutral-200/80 p-4 rounded-3xl flex flex-col justify-between text-left active:scale-95 transition h-28 shadow-sm cursor-pointer"
                     >
-                      <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center text-indigo-500">
-                        <Moon size={18} />
+                      <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500">
+                        <Moon size={16} />
                       </div>
                       <div>
-                        <span className="text-[10px] text-neutral-400 block uppercase font-bold tracking-wider">Bốc quẻ đêm</span>
-                        <span className="text-sm font-black text-[#18181B]">Làm gì chill?</span>
+                        <span className="text-[10px] text-neutral-400 block uppercase font-bold">Bốc quẻ đêm</span>
+                        <span className="text-xs font-black text-[#18181B]">Làm gì chill?</span>
                       </div>
                     </button>
                   </div>
 
-                  <div className="bg-white rounded-[28px] p-5 shadow-sm border border-neutral-100">
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-xs font-bold text-[#18181B] flex items-center gap-1.5 uppercase tracking-wide">
-                        <Calendar size={14} className="text-neutral-400" /> Tuyến hôm nay
+                  {/* TUYẾN GA LỊCH TRÌNH */}
+                  <div className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-200/80 space-y-2.5">
+                    <div className="flex justify-between items-center pb-1">
+                      <span className="text-xs font-black text-[#18181B] flex items-center gap-1.5">
+                        <Calendar size={13} className="text-neutral-400" /> Tuyến lịch trình hôm nay
                       </span>
                       <button
                         type="button"
                         onClick={() => setIsAddScheduleOpen(true)}
                         className="text-[11px] font-bold text-neutral-500 hover:text-black flex items-center gap-0.5 cursor-pointer"
                       >
-                        <Plus size={13} /> Thêm ga
+                        <Plus size={12} /> Thêm ga
                       </button>
                     </div>
 
-                    <div className="space-y-2">
-                      {todaySchedules.length === 0 ? (
-                        <p className="text-xs text-neutral-400 py-3 text-center">Chưa có lịch trình cho hôm nay</p>
-                      ) : (
-                        todaySchedules.slice(0, 3).map((item) => (
-                          <div
-                            key={item.id}
-                            onClick={() => toggleScheduleItem(item.id)}
-                            className="flex items-center justify-between p-3 rounded-2xl bg-[#F7F7F5] border border-neutral-200/40 cursor-pointer active:scale-[0.98] transition"
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs font-bold text-neutral-400 w-10 font-mono">{item.startTime}</span>
-                              <span className={`text-xs font-semibold ${item.completed ? 'line-through text-neutral-400' : 'text-[#18181B]'}`}>
-                                {item.title}
-                              </span>
-                            </div>
-                            {item.completed ? (
-                              <CheckCircle2 size={18} className="text-neutral-800" />
-                            ) : (
-                              <Circle size={18} className="text-neutral-300" />
-                            )}
+                    {todaySchedules.length === 0 ? (
+                      <p className="text-xs text-neutral-400 py-3 text-center">Chưa có lịch trình cho hôm nay</p>
+                    ) : (
+                      todaySchedules.slice(0, 3).map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => toggleScheduleItem(item.id)}
+                          className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F8F8F7] border border-neutral-200/50 cursor-pointer active:scale-98 transition"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-xs font-bold text-neutral-400 w-10 font-mono">{item.startTime}</span>
+                            <span className={`text-xs font-semibold ${item.completed ? 'line-through text-neutral-400' : 'text-[#18181B]'}`}>
+                              {item.title}
+                            </span>
                           </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-[28px] p-4 shadow-sm border border-neutral-100 divide-y divide-neutral-100">
-                    <div className="flex justify-between items-center pb-2 px-1">
-                      <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Giao dịch gần đây</span>
-                      <span className="text-[11px] text-neutral-400 font-semibold">{transactions.length} khoản</span>
-                    </div>
-                    {transactions.slice(0, 3).map((tx) => (
-                      <div key={tx.id} className="flex items-center justify-between py-2.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-2xl bg-neutral-100 flex items-center justify-center text-neutral-600">
-                            {getCategoryIcon(tx.category)}
-                          </div>
-                          <div>
-                            <h4 className="text-xs font-bold text-[#18181B]">{tx.category}</h4>
-                            <p className="text-[10px] text-neutral-400">
-                              {tx.note ? `${tx.note} · ` : ''}{tx.bankName}
-                            </p>
-                          </div>
+                          {item.completed ? (
+                            <CheckCircle2 size={16} className="text-neutral-800" />
+                          ) : (
+                            <Circle size={16} className="text-neutral-300" />
+                          )}
                         </div>
-                        <span className={`text-xs font-black ${tx.type === 'income' ? 'text-emerald-600' : 'text-[#18181B]'}`}>
-                          {tx.type === 'income' ? '+' : '-'}{tx.amount.toLocaleString()}đ
-                        </span>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
-                </>
+                </div>
               )}
             </>
           )}
@@ -324,16 +434,120 @@ export default function App() {
           {activeTab === 'report' && <ReportView />}
         </div>
 
+        {/* ================= MODAL CÀI ĐẶT & HỒ SƠ ================= */}
+        {isSettingsOpen && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-ios-fade">
+            <div className="w-full max-w-sm bg-[#F8F8F7] rounded-t-[36px] sm:rounded-[36px] p-6 shadow-2xl relative border border-neutral-200 animate-ios-sheet space-y-4 max-h-[85vh] overflow-y-auto no-scrollbar">
+              <div className="flex justify-between items-center">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 block">
+                    Cài đặt & Dữ liệu
+                  </span>
+                  <h3 className="text-lg font-black text-[#18181B]">Hồ Sơ Nếp Hub</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-600 hover:text-black cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Thông tin hồ sơ */}
+              <div className="bg-white rounded-3xl p-4 border border-neutral-200/80 shadow-sm flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-2xl">
+                  😎
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-[#18181B]">Tâm (Admin)</h4>
+                  <p className="text-[11px] text-neutral-400 font-semibold">Tài khoản cá nhân · Nếp Hub</p>
+                </div>
+              </div>
+
+              {/* Menu Cài đặt chức năng */}
+              <div className="bg-white rounded-3xl p-2 border border-neutral-200/80 shadow-sm divide-y divide-neutral-100">
+                {/* Bật/Tắt thông báo */}
+                <div 
+                  onClick={handleToggleNotification}
+                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-neutral-50 rounded-2xl transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                      {notiEnabled ? <BellRing size={16} /> : <Bell size={16} />}
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-black text-[#18181B]">Thông báo đẩy</h5>
+                      <p className="text-[10px] text-neutral-400">Nhắc hạn mức và động viên</p>
+                    </div>
+                  </div>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${notiEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-400'}`}>
+                    {notiEnabled ? 'BẬT' : 'TẮT'}
+                  </span>
+                </div>
+
+                {/* Sao lưu dữ liệu */}
+                <div 
+                  onClick={handleExportBackup}
+                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-neutral-50 rounded-2xl transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                      <Download size={16} />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-black text-[#18181B]">Tải bản sao lưu (JSON)</h5>
+                      <p className="text-[10px] text-neutral-400">Xuất toàn bộ sổ chi tiêu ra file</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={15} className="text-neutral-400" />
+                </div>
+
+                {/* Khôi phục dữ liệu */}
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-neutral-50 rounded-2xl transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <Upload size={16} />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-black text-[#18181B]">Khôi phục dữ liệu</h5>
+                      <p className="text-[10px] text-neutral-400">Nhập lại dữ liệu từ file JSON</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={15} className="text-neutral-400" />
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportBackup}
+                  className="hidden"
+                />
+              </div>
+
+              <div className="text-center pt-2">
+                <span className="text-[10px] font-bold text-neutral-400">
+                  Nếp · Life Hub v3.2 · Thiết kế tối giản
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Thanh Dock Điều Hướng Dưới Cùng */}
         <div className="fixed bottom-5 left-0 right-0 max-w-md mx-auto px-4 pointer-events-none z-30">
           <FloatingDock />
         </div>
 
+        {/* CÁC MODAL HỆ THỐNG */}
         <QrScannerModal />
         <KeypadModal />
         <AddScheduleModal />
         <CsgoFoodRoulette />
         <TarotCardFlip />
-
       </main>
     </div>
   );
