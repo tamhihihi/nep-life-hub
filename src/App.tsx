@@ -25,6 +25,8 @@ import { FloatingDock } from './components/common/FloatingDock';
 import { EveningWhisperCard } from './components/evening/EveningWhisperCard';
 import { NepMoments } from './components/expense/social/NepMoments';
 import { LoginView, GoogleUser } from './components/auth/LoginView';
+import { OnboardingModal } from './components/onboarding/OnboardingModal';
+import { userDataSync } from './services/userDataSync';
 import { notifier } from './utils/notificationService';
 import { sounds } from './utils/soundEngine';
 
@@ -95,6 +97,22 @@ export default function App() {
     }
   });
 
+  // QUẢN LÝ TRẠNG THÁI HIỂN THỊ ONBOARDING CHO NGƯỜI MỚI
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
+    try {
+      const savedUser = localStorage.getItem('nep_user_session_v1');
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        if (u?.id) {
+          return !localStorage.getItem(`nep_onboarded_${u.id}`);
+        }
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  });
+
   const [hubSection, setHubSection] = useState<'wallet' | 'lokcam' | 'chill'>('wallet');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [undoToast, setUndoToast] = useState<{ id: string; text: string } | null>(null);
@@ -134,9 +152,66 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleLoginSuccess = (user: GoogleUser) => {
+  // XỬ LÝ ĐĂNG NHẬP GOOGLE THÀNH CÔNG
+  const handleLoginSuccess = async (user: GoogleUser) => {
     setCurrentUser(user);
     localStorage.setItem('nep_user_session_v1', JSON.stringify(user));
+
+    const onboardKey = `nep_onboarded_${user.id}`;
+    const isAlreadyOnboarded = localStorage.getItem(onboardKey);
+
+    if (!isAlreadyOnboarded) {
+      // TÀI KHOẢN MỚI: Reset toàn bộ danh sách giao dịch về rỗng (0đ)
+      useAppStore.setState({ transactions: [] });
+      if (typeof (store as any).setTransactions === 'function') {
+        (store as any).setTransactions([]);
+      }
+      setShowOnboarding(true);
+    } else {
+      // TÀI KHOẢN CŨ: Tải lại dữ liệu đã lưu từ Cloud
+      try {
+        const savedData = await userDataSync.loadUserData(user.id);
+        if (savedData) {
+          useAppStore.setState({
+            monthlyLimit: savedData.monthlyLimit,
+            transactions: savedData.transactions || [],
+            scheduleItems: savedData.scheduleItems || [],
+          });
+        }
+      } catch {}
+    }
+  };
+
+  // HOÀN THÀNH ONBOARDING LẦN ĐẦU
+  const handleCompleteOnboarding = (initialLimit: number) => {
+    if (!currentUser) return;
+
+    // 1. Cập nhật hạn mức người dùng vừa nhập và reset sạch giao dịch về 0
+    useAppStore.setState({
+      monthlyLimit: initialLimit,
+      transactions: [],
+    });
+
+    if (typeof store.setMonthlyLimit === 'function') {
+      store.setMonthlyLimit(initialLimit);
+    }
+    if (typeof (store as any).setTransactions === 'function') {
+      (store as any).setTransactions([]);
+    }
+
+    // 2. Đánh dấu đã onboarding cho User ID này
+    localStorage.setItem(`nep_onboarded_${currentUser.id}`, 'true');
+
+    // 3. Đồng bộ dữ liệu sạch này lên Cloud
+    try {
+      userDataSync.syncUserData(currentUser.id, {
+        transactions: [],
+        scheduleItems: [],
+        monthlyLimit: initialLimit,
+      });
+    } catch {}
+
+    setShowOnboarding(false);
   };
 
   const handleLogout = () => {
@@ -201,33 +276,67 @@ export default function App() {
     sounds.playKeypadTap();
 
     const newId = `tx_${Date.now()}`;
+    const newTx = {
+      id: newId,
+      amount,
+      type: 'expense' as const,
+      category,
+      bankName: 'Tiền mặt',
+      note,
+      dateStr: todayStr,
+    };
+
     if (typeof (store as any).addTransaction === 'function') {
-      (store as any).addTransaction({
-        id: newId,
-        amount,
-        type: 'expense',
-        category,
-        bankName: 'Tiền mặt',
-        note,
-        dateStr: todayStr,
-      });
-
-      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-      setUndoToast({ id: newId, text: `Đã ghi ${category} - ${(amount / 1000).toFixed(0)}k` });
-
-      toastTimeoutRef.current = window.setTimeout(() => {
-        setUndoToast(null);
-      }, 3500);
+      (store as any).addTransaction(newTx);
+    } else {
+      useAppStore.setState((prev: any) => ({
+        transactions: [newTx, ...(prev.transactions || [])],
+      }));
     }
+
+    if (currentUser) {
+      const currentList = [newTx, ...transactions];
+      try {
+        userDataSync.syncUserData(currentUser.id, {
+          transactions: currentList,
+          scheduleItems,
+          monthlyLimit,
+        });
+      } catch {}
+    }
+
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setUndoToast({ id: newId, text: `Đã ghi ${category} - ${(amount / 1000).toFixed(0)}k` });
+
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setUndoToast(null);
+    }, 3500);
   };
 
   const handleUndoSpend = () => {
     if (!undoToast) return;
     triggerHaptic('light');
     sounds.playKeypadTap();
+
     if (typeof (store as any).deleteTransaction === 'function') {
       (store as any).deleteTransaction(undoToast.id);
+    } else {
+      useAppStore.setState((prev: any) => ({
+        transactions: (prev.transactions || []).filter((t: any) => t.id !== undoToast.id),
+      }));
     }
+
+    if (currentUser) {
+      const remainingTx = transactions.filter((t) => t.id !== undoToast.id);
+      try {
+        userDataSync.syncUserData(currentUser.id, {
+          transactions: remainingTx,
+          scheduleItems,
+          monthlyLimit,
+        });
+      } catch {}
+    }
+
     setUndoToast(null);
   };
 
@@ -249,6 +358,16 @@ export default function App() {
     }
   };
 
+  const handleGoToReport = () => {
+    triggerHaptic('light');
+    sounds.playKeypadTap();
+    if (typeof (store as any).setActiveTab === 'function') {
+      (store as any).setActiveTab('report');
+    } else {
+      useAppStore.setState({ activeTab: 'report' });
+    }
+  };
+
   const getCategoryIcon = (cat: string) => {
     if (cat.includes('Ăn') || cat.includes('Cơm')) {
       return <img src={foodIcon} alt="Cơm" className="w-5 h-5 object-contain" />;
@@ -263,6 +382,7 @@ export default function App() {
     return <img src={spendingIcon} alt="Chi tiêu" className="w-5 h-5 object-contain" />;
   };
 
+  // NẾU CHƯA ĐĂNG NHẬP GOOGLE -> VÀO THẲNG MÀN HÌNH ĐĂNG NHẬP
   if (!currentUser) {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;
   }
@@ -363,7 +483,7 @@ export default function App() {
                 <div className="space-y-4 animate-tab-switch">
                   <ExpenseSummaryCard />
 
-                  {/* 3 NÚT HÀNH ĐỘNG GHI CHÉP GỌN GÀNG KHÔNG BỊ LẶP LẠI */}
+                  {/* 3 NÚT HÀNH ĐỘNG GỌN GÀNG, KHÔNG BỊ TRÙNG LẶP */}
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
@@ -387,16 +507,9 @@ export default function App() {
                       <span className="text-[11px] font-black text-neutral-700">Chia Bill</span>
                     </button>
 
-                    {/* BÁO CÁO CHI TIÊU - THAY THẾ CHO NÚT GHI NHANH GÂY TRÙNG LẶP */}
                     <button
                       type="button"
-                      onClick={() => {
-                        triggerHaptic('light');
-                        sounds.playKeypadTap();
-                        if (typeof (store as any).setActiveTab === 'function') {
-                          (store as any).setActiveTab('report');
-                        }
-                      }}
+                      onClick={handleGoToReport}
                       className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition-transform cursor-pointer"
                     >
                       <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -443,7 +556,7 @@ export default function App() {
                     </div>
 
                     {transactions.length === 0 ? (
-                      <p className="text-xs text-neutral-400 py-3 text-center">Chưa có khoản chi nào</p>
+                      <p className="text-xs text-neutral-400 py-3 text-center">Chưa có khoản chi nào (0đ)</p>
                     ) : (
                       transactions.slice(0, 3).map((tx) => (
                         <div key={tx.id} className="flex items-center justify-between py-2.5">
@@ -620,7 +733,6 @@ export default function App() {
                 </button>
               </div>
 
-              {/* KHỐI THÔNG TIN TÀI KHOẢN GOOGLE */}
               <div className="bg-white rounded-3xl p-4 border border-neutral-200/80 shadow-sm flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-neutral-100 border border-neutral-200 flex items-center justify-center overflow-hidden shadow-sm shrink-0">
                   {currentUser.picture ? (
@@ -693,7 +805,6 @@ export default function App() {
                   className="hidden"
                 />
 
-                {/* NÚT ĐĂNG XUẤT GOOGLE */}
                 <div 
                   onClick={handleLogout}
                   className="flex items-center justify-between p-3 cursor-pointer hover:bg-rose-50 rounded-2xl transition-colors text-rose-600"
@@ -725,6 +836,14 @@ export default function App() {
         <div className="fixed bottom-5 left-0 right-0 max-w-md mx-auto px-4 pointer-events-none z-30">
           <FloatingDock />
         </div>
+
+        {/* HƯỚNG DẪN DÀNH RIÊNG CHO TÀI KHOẢN ĐĂNG NHẬP LẦN ĐẦU */}
+        {showOnboarding && currentUser && (
+          <OnboardingModal
+            userName={currentUser.name}
+            onComplete={handleCompleteOnboarding}
+          />
+        )}
 
         {/* CÁC MODAL HỆ THỐNG */}
         <Suspense fallback={null}>
