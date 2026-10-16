@@ -40,3 +40,70 @@ body {
 .animate-ios-fade {
   animation: iosFadeIn 0.22s ease-out forwards;
 }
+/* ================= HỆ THỐNG ANIMATION CHUẨN APPLE iOS ================= */
+
+/* 1. Đường cong lò xo (Apple Spring Curve) */
+:root {
+  --spring-easing: cubic-bezier(0.16, 1, 0.3, 1);
+  --smooth-easing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 2. Hiệu ứng trượt nở (Fade & Scale Up) khi chuyển tab */
+@keyframes iosFadeScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 3. Hiệu ứng Bottom Sheet trượt từ đáy lên có độ nảy nhẹ */
+@keyframes iosSheetSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 4. Hiệu ứng nảy nhẹ khi bấm 1-Tap (Pop Bounce) */
+@keyframes popBounce {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.92); }
+  80% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+/* 5. Hiệu ứng thở nhẹ phát sáng (Ambient Glow) cho nút chính */
+@keyframes subtlePulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.02); opacity: 0.95; }
+}
+
+/* Các Class tiện ích để gắn vào React */
+.animate-tab-switch {
+  animation: iosFadeScale 0.28s var(--spring-easing) both;
+}
+
+.animate-sheet-spring {
+  animation: iosSheetSlideUp 0.35s var(--spring-easing) both;
+}
+
+.animate-pop {
+  animation: popBounce 0.3s var(--spring-easing);
+}
+
+.animate-glow {
+  animation: subtlePulse 3s ease-in-out infinite;
+}
+
+/* Hiệu ứng chuyển động mượt mà cho các phần tử đổi màu hoặc kích thước */
+.smooth-transition {
+  transition: all 0.25s var(--smooth-easing);
+}

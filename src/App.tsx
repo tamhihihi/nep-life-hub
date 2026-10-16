@@ -8,19 +8,20 @@ import {
   CheckCircle2, 
   Circle, 
   Bell, 
-  BellRing,
-  Bus,
-  ShoppingBag,
-  Download,
-  Upload,
-  Camera,
-  Wallet,
-  Sparkles,
-  X,
-  QrCode,
-  Calculator,
-  Users,
-  ChevronRight
+  BellRing, 
+  Bus, 
+  ShoppingBag, 
+  Download, 
+  Upload, 
+  Camera, 
+  Wallet, 
+  Sparkles, 
+  X, 
+  QrCode, 
+  Calculator, 
+  Users, 
+  ChevronRight,
+  RotateCcw
 } from 'lucide-react';
 import { useAppStore } from './stores/useAppStore';
 import { ExpenseSummaryCard } from './components/expense/ExpenseSummaryCard';
@@ -38,26 +39,39 @@ import { NepMoments } from './components/expense/social/NepMoments';
 import { notifier } from './utils/notificationService';
 import { sounds } from './utils/soundEngine';
 
+// Rung xúc giác chuẩn Haptic cho điện thoại (tự động bỏ qua nếu là máy tính)
+const triggerHaptic = (type: 'light' | 'medium' | 'success' = 'light') => {
+  if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+    if (type === 'light') navigator.vibrate(12);
+    else if (type === 'medium') navigator.vibrate(28);
+    else if (type === 'success') navigator.vibrate([15, 40, 20]);
+  }
+};
+
 export default function App() {
   const store = useAppStore();
   const { 
     activeTab, 
     scheduleItems = [], 
     transactions = [], 
-    monthlyLimit = 5000000,
-    lastActiveTime,
-    updateLastActive,
+    monthlyLimit = 5000000, 
+    lastActiveTime, 
+    updateLastActive, 
     setIsFoodOpen, 
     setIsEveningOpen, 
     toggleScheduleItem, 
     setIsAddScheduleOpen 
   } = store;
 
-  // 3 Phân vùng hiển thị tại Trang Chủ
+  // 3 Phân vùng Trang Chủ
   const [hubSection, setHubSection] = useState<'wallet' | 'lokcam' | 'chill'>('wallet');
 
-  // Sheet Cài đặt & Hồ sơ cá nhân
+  // Sheet Cài đặt & Hồ sơ
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Toast hoàn tác khi bấm 1-Tap
+  const [undoToast, setUndoToast] = useState<{ id: string; text: string } | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
 
   const [notiEnabled, setNotiEnabled] = useState(
     typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
@@ -94,6 +108,7 @@ export default function App() {
   }, []);
 
   const handleToggleNotification = async () => {
+    triggerHaptic('light');
     sounds.playKeypadTap();
     const granted = await notifier.requestPermission();
     setNotiEnabled(granted);
@@ -107,6 +122,7 @@ export default function App() {
   };
 
   const handleExportBackup = () => {
+    triggerHaptic('success');
     sounds.playChime();
     const rawData = localStorage.getItem('nep_lifehub_v3');
     if (!rawData) return;
@@ -128,6 +144,7 @@ export default function App() {
         const content = event.target?.result as string;
         JSON.parse(content);
         localStorage.setItem('nep_lifehub_v3', content);
+        triggerHaptic('success');
         sounds.playChime();
         window.location.reload();
       } catch {
@@ -137,11 +154,15 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  // Nút tắt ghi nhanh 1-Tap
+  // Nút tắt 1-Tap ghi nhanh + Rung Haptic + Hiện nút Hoàn Tác
   const handleQuickSpend = (amount: number, category: string, note: string) => {
+    triggerHaptic('medium');
     sounds.playKeypadTap();
+
+    const newId = `tx_${Date.now()}`;
     if (typeof (store as any).addTransaction === 'function') {
       (store as any).addTransaction({
+        id: newId,
         amount,
         type: 'expense',
         category,
@@ -149,11 +170,28 @@ export default function App() {
         note,
         dateStr: todayStr,
       });
+
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      setUndoToast({ id: newId, text: `Đã ghi ${category} - ${(amount / 1000).toFixed(0)}k` });
+
+      toastTimeoutRef.current = window.setTimeout(() => {
+        setUndoToast(null);
+      }, 3500);
     }
   };
 
-  // Mở Scanner / Keypad an toàn
+  const handleUndoSpend = () => {
+    if (!undoToast) return;
+    triggerHaptic('light');
+    sounds.playKeypadTap();
+    if (typeof (store as any).deleteTransaction === 'function') {
+      (store as any).deleteTransaction(undoToast.id);
+    }
+    setUndoToast(null);
+  };
+
   const handleOpenScanner = () => {
+    triggerHaptic('light');
     sounds.playKeypadTap();
     if (typeof (store as any).setIsQrOpen === 'function') {
       (store as any).setIsQrOpen(true);
@@ -163,6 +201,7 @@ export default function App() {
   };
 
   const handleOpenKeypad = () => {
+    triggerHaptic('light');
     sounds.playKeypadTap();
     if (typeof (store as any).setIsKeypadOpen === 'function') {
       (store as any).setIsKeypadOpen(true);
@@ -194,10 +233,11 @@ export default function App() {
           <button
             type="button"
             onClick={() => {
+              triggerHaptic('light');
               sounds.playKeypadTap();
               setIsSettingsOpen(true);
             }}
-            className="w-10 h-10 rounded-full bg-white border border-neutral-200/90 shadow-sm flex items-center justify-center text-sm font-black active:scale-90 transition cursor-pointer"
+            className="w-10 h-10 rounded-full bg-white border border-neutral-200/90 shadow-sm flex items-center justify-center text-sm font-black active:scale-90 transition-transform cursor-pointer"
             title="Hồ sơ & Cài đặt"
           >
             <span>😎</span>
@@ -208,18 +248,19 @@ export default function App() {
         <div className="flex-1 space-y-4">
           {activeTab === 'home' && (
             <>
-              {/* THANH CHUYỂN 3 KHÔNG GIAN RIÊNG BIỆT (SEGMENTED CONTROL) */}
+              {/* THANH CHUYỂN 3 KHÔNG GIAN RIÊNG BIỆT (ANIMATED PILLS) */}
               <div className="bg-neutral-200/70 p-1 rounded-2xl grid grid-cols-3 gap-1 shadow-inner">
                 <button
                   type="button"
                   onClick={() => {
+                    triggerHaptic('light');
                     sounds.playKeypadTap();
                     setHubSection('wallet');
                   }}
-                  className={`py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                  className={`py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-95 ${
                     hubSection === 'wallet'
-                      ? 'bg-white text-[#18181B] shadow-sm'
-                      : 'text-neutral-500 hover:text-black'
+                      ? 'bg-white text-[#18181B] shadow-sm scale-100'
+                      : 'text-neutral-500 hover:text-black scale-95 opacity-80'
                   }`}
                 >
                   <Wallet size={13} className="text-emerald-600" />
@@ -229,13 +270,14 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => {
+                    triggerHaptic('light');
                     sounds.playKeypadTap();
                     setHubSection('lokcam');
                   }}
-                  className={`py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                  className={`py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-95 ${
                     hubSection === 'lokcam'
-                      ? 'bg-white text-[#18181B] shadow-sm'
-                      : 'text-neutral-500 hover:text-black'
+                      ? 'bg-white text-[#18181B] shadow-sm scale-100'
+                      : 'text-neutral-500 hover:text-black scale-95 opacity-80'
                   }`}
                 >
                   <Camera size={13} className="text-amber-500" />
@@ -245,13 +287,14 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => {
+                    triggerHaptic('light');
                     sounds.playKeypadTap();
                     setHubSection('chill');
                   }}
-                  className={`py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                  className={`py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-95 ${
                     hubSection === 'chill'
-                      ? 'bg-white text-[#18181B] shadow-sm'
-                      : 'text-neutral-500 hover:text-black'
+                      ? 'bg-white text-[#18181B] shadow-sm scale-100'
+                      : 'text-neutral-500 hover:text-black scale-95 opacity-80'
                   }`}
                 >
                   <Sparkles size={13} className="text-indigo-500" />
@@ -261,7 +304,7 @@ export default function App() {
 
               {/* ----- KHÔNG GIAN 1: VÍ TIỀN & CHI TIÊU NHANH ----- */}
               {hubSection === 'wallet' && (
-                <div className="space-y-4 animate-ios-fade">
+                <div className="space-y-4 animate-tab-switch">
                   <ExpenseSummaryCard />
 
                   {/* 3 NÚT HÀNH ĐỘNG GHI CHÉP CHÍNH */}
@@ -269,7 +312,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={handleOpenScanner}
-                      className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                      className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition-transform cursor-pointer"
                     >
                       <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
                         <QrCode size={16} />
@@ -280,7 +323,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={handleOpenKeypad}
-                      className="p-3 bg-[#18181B] text-white rounded-2xl shadow-sm flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                      className="p-3 bg-[#18181B] text-white rounded-2xl shadow-sm flex flex-col items-center gap-1 active:scale-95 transition-transform cursor-pointer"
                     >
                       <div className="w-8 h-8 rounded-xl bg-white/10 text-white flex items-center justify-center">
                         <Calculator size={16} />
@@ -291,7 +334,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={handleOpenKeypad}
-                      className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                      className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition-transform cursor-pointer"
                     >
                       <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
                         <Users size={16} />
@@ -300,12 +343,15 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* DẢI 1-TAP GHI NHANH */}
+                  {/* DẢI 1-TAP GHI NHANH VỚI PHẢN HỒI CHẠM */}
                   <div className="bg-white rounded-3xl p-4 border border-neutral-200/80 shadow-sm space-y-2.5">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">
-                      1-Tap · Chạm là ghi
-                    </span>
-                    <div className="grid grid-cols-4 gap-1.5">
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
+                        1-Tap · Chạm là ghi
+                      </span>
+                      <span className="text-[10px] font-bold text-neutral-400">Bấm nhầm có hoàn tác</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
                       {[
                         { name: 'Cà phê', cost: 30000, icon: '☕' },
                         { name: 'Cơm trưa', cost: 40000, icon: '🍱' },
@@ -316,11 +362,11 @@ export default function App() {
                           key={item.name}
                           type="button"
                           onClick={() => handleQuickSpend(item.cost, item.name, item.name)}
-                          className="p-2 rounded-2xl bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/60 flex flex-col items-center gap-0.5 active:scale-90 transition cursor-pointer"
+                          className="py-3 px-1 rounded-2xl bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/70 flex flex-col items-center gap-1 active:scale-90 active:bg-amber-100 transition-all cursor-pointer"
                         >
-                          <span className="text-base">{item.icon}</span>
-                          <span className="text-[11px] font-extrabold text-[#18181B]">{item.name}</span>
-                          <span className="text-[9px] text-neutral-400 font-mono">{(item.cost / 1000).toFixed(0)}k</span>
+                          <span className="text-xl">{item.icon}</span>
+                          <span className="text-[11px] font-black text-[#18181B]">{item.name}</span>
+                          <span className="text-[10px] text-neutral-400 font-bold font-mono">{(item.cost / 1000).toFixed(0)}k</span>
                         </button>
                       ))}
                     </div>
@@ -359,24 +405,25 @@ export default function App() {
 
               {/* ----- KHÔNG GIAN 2: MẠNG XÃ HỘI LOKCAM ----- */}
               {hubSection === 'lokcam' && (
-                <div className="animate-ios-fade">
+                <div className="animate-tab-switch">
                   <NepMoments />
                 </div>
               )}
 
               {/* ----- KHÔNG GIAN 3: NẾP CHILL & LỊCH TRÌNH ----- */}
               {hubSection === 'chill' && (
-                <div className="space-y-4 animate-ios-fade">
+                <div className="space-y-4 animate-tab-switch">
                   <EveningWhisperCard />
 
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => {
+                        triggerHaptic('light');
                         sounds.playKeypadTap();
                         if (typeof setIsFoodOpen === 'function') setIsFoodOpen(true);
                       }}
-                      className="bg-[#18181B] text-white p-4 rounded-3xl flex flex-col justify-between text-left active:scale-95 transition h-28 shadow-sm cursor-pointer"
+                      className="bg-[#18181B] text-white p-4 rounded-3xl flex flex-col justify-between text-left active:scale-95 transition-transform h-28 shadow-sm cursor-pointer"
                     >
                       <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-amber-300">
                         <Utensils size={16} />
@@ -390,10 +437,11 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => {
+                        triggerHaptic('light');
                         sounds.playKeypadTap();
                         if (typeof setIsEveningOpen === 'function') setIsEveningOpen(true);
                       }}
-                      className="bg-white border border-neutral-200/80 p-4 rounded-3xl flex flex-col justify-between text-left active:scale-95 transition h-28 shadow-sm cursor-pointer"
+                      className="bg-white border border-neutral-200/80 p-4 rounded-3xl flex flex-col justify-between text-left active:scale-95 transition-transform h-28 shadow-sm cursor-pointer"
                     >
                       <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500">
                         <Moon size={16} />
@@ -413,6 +461,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => {
+                          triggerHaptic('light');
                           sounds.playKeypadTap();
                           if (typeof setIsAddScheduleOpen === 'function') setIsAddScheduleOpen(true);
                         }}
@@ -429,10 +478,11 @@ export default function App() {
                         <div
                           key={item.id}
                           onClick={() => {
+                            triggerHaptic('light');
                             sounds.playKeypadTap();
                             if (typeof toggleScheduleItem === 'function') toggleScheduleItem(item.id);
                           }}
-                          className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F8F8F7] border border-neutral-200/50 cursor-pointer active:scale-98 transition"
+                          className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F8F8F7] border border-neutral-200/50 cursor-pointer active:scale-98 transition-transform"
                         >
                           <div className="flex items-center gap-2.5">
                             <span className="text-xs font-bold text-neutral-400 w-10 font-mono">{item.startTime}</span>
@@ -459,10 +509,26 @@ export default function App() {
           {activeTab === 'report' && <ReportView />}
         </div>
 
+        {/* ================= TOAST HOÀN TÁC 1-TAP NỔI ================= */}
+        {undoToast && (
+          <div className="fixed bottom-24 inset-x-4 max-w-sm mx-auto z-40 bg-[#18181B] text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between border border-white/10 animate-sheet-spring">
+            <span className="text-xs font-bold text-neutral-200">
+              ✓ {undoToast.text}
+            </span>
+            <button
+              type="button"
+              onClick={handleUndoSpend}
+              className="px-2.5 py-1 bg-amber-400 hover:bg-amber-300 text-black text-[11px] font-black rounded-xl flex items-center gap-1 active:scale-95 transition-transform cursor-pointer"
+            >
+              <RotateCcw size={12} /> Hoàn tác
+            </button>
+          </div>
+        )}
+
         {/* ================= MODAL CÀI ĐẶT & HỒ SƠ ================= */}
         {isSettingsOpen && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-ios-fade">
-            <div className="w-full max-w-sm bg-[#F8F8F7] rounded-t-[36px] sm:rounded-[36px] p-6 shadow-2xl relative border border-neutral-200 animate-ios-sheet space-y-4 max-h-[85vh] overflow-y-auto no-scrollbar">
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-tab-switch">
+            <div className="w-full max-w-sm bg-[#F8F8F7] rounded-t-[36px] sm:rounded-[36px] p-6 shadow-2xl relative border border-neutral-200 animate-sheet-spring space-y-4 max-h-[85vh] overflow-y-auto no-scrollbar">
               <div className="flex justify-between items-center">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 block">
@@ -492,7 +558,7 @@ export default function App() {
               <div className="bg-white rounded-3xl p-2 border border-neutral-200/80 shadow-sm divide-y divide-neutral-100">
                 <div 
                   onClick={handleToggleNotification}
-                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-neutral-50 rounded-2xl transition"
+                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-neutral-50 rounded-2xl transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
@@ -510,7 +576,7 @@ export default function App() {
 
                 <div 
                   onClick={handleExportBackup}
-                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-neutral-50 rounded-2xl transition"
+                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-neutral-50 rounded-2xl transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -526,7 +592,7 @@ export default function App() {
 
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-neutral-50 rounded-2xl transition"
+                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-neutral-50 rounded-2xl transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -550,7 +616,7 @@ export default function App() {
 
               <div className="text-center pt-2">
                 <span className="text-[10px] font-bold text-neutral-400">
-                  Nếp · Life Hub v3.2 · Thiết kế tối giản
+                  Nếp · Life Hub v3.3 · Giao diện chuyển động mượt
                 </span>
               </div>
             </div>
