@@ -17,7 +17,10 @@ import {
   ChevronRight, 
   RotateCcw, 
   LogOut, 
-  ShieldCheck 
+  ShieldCheck,
+  Zap,
+  Copy,
+  Check
 } from 'lucide-react';
 import { useAppStore } from './stores/useAppStore';
 import { ExpenseSummaryCard } from './components/expense/ExpenseSummaryCard';
@@ -26,7 +29,7 @@ import { EveningWhisperCard } from './components/evening/EveningWhisperCard';
 import { NepMoments } from './components/expense/social/NepMoments';
 import { LoginView, GoogleUser } from './components/auth/LoginView';
 import { OnboardingModal } from './components/onboarding/OnboardingModal';
-import { userDataSync } from './services/userDataSync';
+import { userDataSync, FIREBASE_RTDB_URL } from './services/userDataSync';
 import { notifier } from './utils/notificationService';
 import { sounds } from './utils/soundEngine';
 
@@ -113,6 +116,7 @@ export default function App() {
 
   const [hubSection, setHubSection] = useState<'wallet' | 'lokcam' | 'chill'>('wallet');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [undoToast, setUndoToast] = useState<{ id: string; text: string } | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
 
@@ -122,7 +126,7 @@ export default function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // BIẾN KIỂM TRA ĐANG Ở TAB LOKCAM
+  // BIẾN KIỂM TRA ĐANG Ở TAB LOKCAM ĐỂ ẨN DOCK ĐÁY
   const isLokCamActive = activeTab === 'home' && hubSection === 'lokcam';
 
   const now = new Date();
@@ -132,6 +136,7 @@ export default function App() {
   const todayStr = now.toISOString().split('T')[0];
   const todaySchedules = scheduleItems.filter((i) => i.dateStr === todayStr);
 
+  // NHẮC NHỞ ĐỊNH KỲ VÀ THÔNG BÁO HẠN MỨC
   useEffect(() => {
     if (typeof updateLastActive === 'function') {
       notifier.checkInactivity(lastActiveTime);
@@ -152,6 +157,34 @@ export default function App() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // LẮNG NGHE BIẾN ĐỘNG SỐ DƯ TỰ ĐỘNG TỪ IPHONE AUTOMATION
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const unsubscribe = userDataSync.listenAutoTransactions(currentUser.id, (newTx: any) => {
+      triggerHaptic('success');
+      try { sounds?.playChime?.(); } catch {}
+
+      useAppStore.setState((prev: any) => {
+        const currentList = prev.transactions || [];
+        if (currentList.some((t: any) => t.id === newTx.id)) return prev;
+        return { transactions: [newTx, ...currentList] };
+      });
+
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      setUndoToast({
+        id: newTx.id || `auto_${Date.now()}`,
+        text: `Tự động ghi: ${newTx.category || 'Chi tiêu'} - ${((newTx.amount || 0) / 1000).toFixed(0)}k`,
+      });
+
+      toastTimeoutRef.current = window.setTimeout(() => {
+        setUndoToast(null);
+      }, 4000);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser?.id]);
 
   const handleLoginSuccess = async (user: GoogleUser) => {
     setCurrentUser(user);
@@ -362,6 +395,16 @@ export default function App() {
     }
   };
 
+  const handleCopyWebhookUrl = () => {
+    if (!currentUser?.id) return;
+    try { sounds?.playKeypadTap?.(); } catch {}
+    const cleanUrl = FIREBASE_RTDB_URL.endsWith('/') ? FIREBASE_RTDB_URL.slice(0, -1) : FIREBASE_RTDB_URL;
+    const webhookUrl = `${cleanUrl}/users/${currentUser.id}/transactions.json`;
+    navigator.clipboard?.writeText(webhookUrl);
+    setCopiedWebhook(true);
+    setTimeout(() => setCopiedWebhook(false), 2500);
+  };
+
   const getCategoryIcon = (cat: string) => {
     if (cat.includes('Ăn') || cat.includes('Cơm')) {
       return <img src={foodIcon} alt="Cơm" className="w-5 h-5 object-contain" />;
@@ -382,7 +425,6 @@ export default function App() {
 
   return (
     <div className={`min-h-screen bg-[#F8F8F7] text-[#18181B] font-sans flex flex-col justify-between selection:bg-neutral-200 ${isLokCamActive ? 'h-[100dvh] overflow-hidden' : ''}`}>
-      {/* KHUNG CHÍNH: KHI Ở LOKCAM KHÓA CỐ ĐỊNH 100DVH, KHÔNG THỂ BỊ CUỘN TRÔI TRANG */}
       <main className={`w-full max-w-md mx-auto flex flex-col px-4 pt-4 ${
         isLokCamActive
           ? 'h-[100dvh] overflow-hidden pb-3'
@@ -422,7 +464,7 @@ export default function App() {
         <div className={`flex-1 flex flex-col min-h-0 ${isLokCamActive ? 'overflow-hidden' : 'space-y-4'}`}>
           {activeTab === 'home' && (
             <>
-              {/* THANH CHUYỂN 3 KHÔNG GIAN DÙNG ICON VOXEL (CỐ ĐỊNH Ở TRÊN ĐỂ ĐỔI TAB DỄ DÀNG) */}
+              {/* THANH CHUYỂN 3 KHÔNG GIAN DÙNG ICON VOXEL */}
               <div className="bg-neutral-200/70 p-1.5 rounded-2xl grid grid-cols-3 gap-1 shadow-inner shrink-0 mb-3">
                 <button
                   type="button"
@@ -728,6 +770,7 @@ export default function App() {
                 </button>
               </div>
 
+              {/* KHỐI THÔNG TIN TÀI KHOẢN GOOGLE */}
               <div className="bg-white rounded-3xl p-4 border border-neutral-200/80 shadow-sm flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-neutral-100 border border-neutral-200 flex items-center justify-center overflow-hidden shadow-sm shrink-0">
                   {currentUser.picture ? (
@@ -740,6 +783,26 @@ export default function App() {
                   <h4 className="text-sm font-black text-[#18181B] truncate">{currentUser.name}</h4>
                   <p className="text-[11px] text-neutral-400 font-semibold truncate">{currentUser.email}</p>
                 </div>
+              </div>
+
+              {/* KHỐI LIÊN KẾT PHÍM TẮT IPHONE TỰ ĐỘNG BẮT BIẾN ĐỘNG SỐ DƯ */}
+              <div className="bg-amber-500/10 border border-amber-300/60 rounded-3xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+                    <Zap size={13} className="text-amber-600 fill-amber-500" /> Phím tắt iPhone (Auto SMS)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyWebhookUrl}
+                    className="px-2.5 py-1 bg-amber-400 hover:bg-amber-300 text-black text-[10px] font-black rounded-xl flex items-center gap-1 active:scale-95 transition shadow-sm cursor-pointer"
+                  >
+                    {copiedWebhook ? <Check size={12} /> : <Copy size={12} />}
+                    <span>{copiedWebhook ? 'Đã chép' : 'Sao chép URL'}</span>
+                  </button>
+                </div>
+                <p className="text-[10px] text-neutral-600 font-medium leading-relaxed">
+                  Dán URL này vào mục Tự động hóa của iPhone để mỗi khi ngân hàng gửi tin nhắn trừ tiền, Nếp sẽ tự động ghi sổ tức thì.
+                </p>
               </div>
 
               <div className="bg-white rounded-3xl p-2 border border-neutral-200/80 shadow-sm divide-y divide-neutral-100">
@@ -827,7 +890,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= THANH DOCK ĐÁY: ẨN HOÀN TOÀN KHI VÀO LOKCAM ================= */}
+        {/* ================= THANH DOCK ĐÁY: ẨN KHI VÀO LOKCAM ================= */}
         {!isLokCamActive && (
           <div className="fixed bottom-5 left-0 right-0 max-w-md mx-auto px-4 pointer-events-none z-30 transition-all duration-300">
             <FloatingDock />
