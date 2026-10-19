@@ -19,9 +19,7 @@ import {
   LogOut, 
   ShieldCheck,
   Zap,
-  Flame,
-  Coffee,
-  HeartHandshake
+  Users
 } from 'lucide-react';
 import { useAppStore } from './stores/useAppStore';
 import { ExpenseSummaryCard } from './components/expense/ExpenseSummaryCard';
@@ -42,7 +40,6 @@ import friendsIcon from './assets/icons/friends.png';
 import socialIcon from './assets/icons/social.png';
 import spendingIcon from './assets/icons/spending.png';
 
-// TẢI TRỄ CÁC MODAL VÀ TAB NẶNG ĐỂ MỞ APP TỨC THÌ
 const QrScannerModal = lazy(() =>
   import('./components/expense/QrScannerModal').then((m) => ({ default: (m as any).QrScannerModal || (m as any).default }))
 );
@@ -125,26 +122,10 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isLokCamActive = activeTab === 'home' && hubSection === 'lokcam';
 
-  // LỜI CHÀO SỐNG ĐỘNG THEO KHUNG GIỜ THỰC TẾ
   const now = new Date();
-  const currentHour = now.getHours();
-  const getGreetingData = () => {
-    if (currentHour < 11) {
-      return { text: 'Chào buổi sáng năng lượng!', mood: '☀️', aura: 'text-amber-500' };
-    }
-    if (currentHour < 14) {
-      return { text: 'Bữa trưa ngon miệng nhé!', mood: '🍱', aura: 'text-orange-500' };
-    }
-    if (currentHour < 18) {
-      return { text: 'Buổi chiều êm ả, thảnh thơi!', mood: '☕', aura: 'text-emerald-500' };
-    }
-    return { text: 'Buổi tối an yên, thư giãn nhé!', mood: '🌙', aura: 'text-indigo-400' };
-  };
-
-  const greeting = getGreetingData();
-  const weekdays = ['CHỦ NHẬT', 'THỨ HAI', 'THỨ BA', 'THỨ TƯ', 'THỨ NĂM', 'THỨ SÁU', 'THỨ BẢY'];
+  const weekdays = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
   const currentWeekday = weekdays[now.getDay()];
-  const currentDateLabel = `${now.getDate()} tháng ${now.getMonth() + 1}`;
+  const currentDateLabel = `${now.getDate()} thg ${now.getMonth() + 1}`;
   const todayStr = now.toISOString().split('T')[0];
   const todaySchedules = scheduleItems.filter((i) => i.dateStr === todayStr);
 
@@ -316,7 +297,7 @@ export default function App() {
     }
 
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setUndoToast({ id: newId, text: `Đã ghi ${category} - ${(amount / 1000).toFixed(0)}k` });
+    setUndoToast({ id: newId, text: `Đã ghi ${category}: -${(amount / 1000).toFixed(0)}k` });
 
     toastTimeoutRef.current = window.setTimeout(() => {
       setUndoToast(null);
@@ -397,34 +378,22 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen bg-[#F7F7F5] text-[#18181B] font-sans flex flex-col justify-between selection:bg-neutral-200 ${isLokCamActive ? 'h-[100dvh] overflow-hidden' : ''}`}>
+    <div className={`min-h-screen bg-[#F8F8F7] text-[#18181B] font-sans flex flex-col justify-between selection:bg-neutral-200 ${isLokCamActive ? 'h-[100dvh] overflow-hidden' : ''}`}>
       <main className={`w-full max-w-md mx-auto flex flex-col px-4 pt-4 ${
         isLokCamActive
           ? 'h-[100dvh] overflow-hidden pb-3'
           : 'min-h-screen pb-36'
       }`}>
         
-        {/* ================= HEADER SỐNG ĐỘNG: GREETING & STREAK FLAME ================= */}
-        <header className="flex justify-between items-start mb-3 px-1 shrink-0">
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-black tracking-wider uppercase text-neutral-400">
-                {currentWeekday} · {currentDateLabel}
-              </span>
-              {/* Huy hiệu chuỗi ngày nề nếp */}
-              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-300/60 text-orange-600 text-[10px] font-black shadow-xs">
-                <Flame size={11} className="fill-orange-500 text-orange-500 animate-bounce" />
-                3 ngày
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black tracking-tight text-[#18181B]">
-                Nếp · Life Hub
-              </h1>
-              <span className="text-sm">{greeting.mood}</span>
-            </div>
-            <p className="text-[11px] font-bold text-neutral-500">{greeting.text}</p>
+        {/* ================= HEADER ĐƠN GIẢN, DỄ NHÌN ================= */}
+        <header className="flex justify-between items-center mb-3 px-1 shrink-0">
+          <div>
+            <span className="text-[11px] font-bold text-neutral-400">
+              {currentWeekday}, {currentDateLabel}
+            </span>
+            <h1 className="text-xl font-black text-[#18181B] flex items-center gap-1.5">
+              Nếp · Sổ Chi Tiêu <Sparkles size={15} className="text-amber-500 fill-amber-400" />
+            </h1>
           </div>
           
           <button
@@ -434,11 +403,11 @@ export default function App() {
               sounds.playKeypadTap();
               setIsSettingsOpen(true);
             }}
-            className="w-11 h-11 rounded-2xl bg-white border border-neutral-200/90 shadow-[0_4px_12px_rgba(0,0,0,0.04)] flex items-center justify-center text-sm font-black active:scale-90 transition-transform cursor-pointer overflow-hidden p-0.5"
-            title="Hồ sơ Google & Cài đặt"
+            className="w-10 h-10 rounded-full bg-white border border-neutral-200 shadow-sm flex items-center justify-center active:scale-90 transition-transform cursor-pointer overflow-hidden p-0.5"
+            title="Cài đặt & Hồ sơ"
           >
             {currentUser.picture ? (
-              <img src={currentUser.picture} alt={currentUser.name} className="w-full h-full rounded-xl object-cover" />
+              <img src={currentUser.picture} alt={currentUser.name} className="w-full h-full rounded-full object-cover" />
             ) : (
               <img src={friendsIcon} alt="Hồ sơ" className="w-full h-full object-contain p-1" />
             )}
@@ -449,8 +418,8 @@ export default function App() {
         <div className={`flex-1 flex flex-col min-h-0 ${isLokCamActive ? 'overflow-hidden' : 'space-y-4'}`}>
           {activeTab === 'home' && (
             <>
-              {/* THANH CHUYỂN 3 KHÔNG GIAN THIẾT KẾ DẠNG VIÊN THUỐC CÓ ĐỘ NẢY */}
-              <div className="bg-neutral-200/80 p-1.5 rounded-[22px] grid grid-cols-3 gap-1 shadow-inner shrink-0 mb-3 border border-neutral-300/40">
+              {/* THANH 3 KHÔNG GIAN CÓ CHỮ RÕ RÀNG */}
+              <div className="bg-neutral-200/80 p-1 rounded-2xl grid grid-cols-3 gap-1 shrink-0 mb-3 border border-neutral-300/40">
                 <button
                   type="button"
                   onClick={() => {
@@ -458,13 +427,13 @@ export default function App() {
                     sounds.playKeypadTap();
                     setHubSection('wallet');
                   }}
-                  className={`py-2.5 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer transition-all duration-300 ${
+                  className={`py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                     hubSection === 'wallet'
-                      ? 'bg-white text-[#18181B] shadow-[0_4px_10px_rgba(0,0,0,0.06)] scale-100'
-                      : 'text-neutral-500 hover:text-black scale-95 opacity-80'
+                      ? 'bg-white text-[#18181B] shadow-sm'
+                      : 'text-neutral-500 hover:text-black opacity-80'
                   }`}
                 >
-                  <img src={walletIcon} alt="Ví Tiền" className="w-5 h-5 object-contain drop-shadow-xs" />
+                  <img src={walletIcon} alt="Ví Tiền" className="w-4 h-4 object-contain" />
                   <span>Ví Tiền</span>
                 </button>
 
@@ -475,14 +444,14 @@ export default function App() {
                     sounds.playKeypadTap();
                     setHubSection('lokcam');
                   }}
-                  className={`py-2.5 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer transition-all duration-300 ${
+                  className={`py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                     hubSection === 'lokcam'
-                      ? 'bg-white text-[#18181B] shadow-[0_4px_10px_rgba(0,0,0,0.06)] scale-100'
-                      : 'text-neutral-500 hover:text-black scale-95 opacity-80'
+                      ? 'bg-white text-[#18181B] shadow-sm'
+                      : 'text-neutral-500 hover:text-black opacity-80'
                   }`}
                 >
-                  <img src={cameraIcon} alt="LokCam" className="w-5 h-5 object-contain drop-shadow-xs" />
-                  <span>LokCam</span>
+                  <img src={cameraIcon} alt="Ảnh Bạn Thân" className="w-4 h-4 object-contain" />
+                  <span>Ảnh Bạn Bè</span>
                 </button>
 
                 <button
@@ -492,85 +461,89 @@ export default function App() {
                     sounds.playKeypadTap();
                     setHubSection('chill');
                   }}
-                  className={`py-2.5 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer transition-all duration-300 ${
+                  className={`py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                     hubSection === 'chill'
-                      ? 'bg-white text-[#18181B] shadow-[0_4px_10px_rgba(0,0,0,0.06)] scale-100'
-                      : 'text-neutral-500 hover:text-black scale-95 opacity-80'
+                      ? 'bg-white text-[#18181B] shadow-sm'
+                      : 'text-neutral-500 hover:text-black opacity-80'
                   }`}
                 >
-                  <img src={socialIcon} alt="Nếp Chill" className="w-5 h-5 object-contain drop-shadow-xs" />
-                  <span>Nếp Chill</span>
+                  <img src={socialIcon} alt="Tiện ích" className="w-4 h-4 object-contain" />
+                  <span>Tiện Ích</span>
                 </button>
               </div>
 
-              {/* ----- KHÔNG GIAN 1: VÍ TIỀN ----- */}
+              {/* ----- KHÔNG GIAN 1: VÍ TIỀN DỄ TIẾP CẬN NHẤT ----- */}
               {hubSection === 'wallet' && (
                 <div className="space-y-4 animate-tab-switch">
+                  {/* THẺ TỔNG KẾT TIỀN THÁNG */}
                   <ExpenseSummaryCard />
 
-                  {/* 3 NÚT HÀNH ĐỘNG DẠNG NỔI TACTILE 3D CHẠM CỰC THÍCH */}
-                  <div className="grid grid-cols-3 gap-2.5">
+                  {/* 3 NÚT TIỆN ÍCH DỄ HIỂU NHẤT CHO NGƯỜI DÙNG */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {/* 1. Quét QR thanh toán */}
                     <button
                       type="button"
                       onClick={handleOpenScanner}
-                      className="p-3 bg-white rounded-3xl border border-neutral-200/90 shadow-[0_4px_0_0_#e4e4e7] active:translate-y-1 active:shadow-none flex flex-col items-center gap-1.5 transition-all cursor-pointer"
+                      className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition-transform cursor-pointer"
                     >
-                      <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                      <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
                         <QrCode size={18} />
                       </div>
                       <span className="text-[11px] font-black text-neutral-800">Quét VietQR</span>
                     </button>
 
+                    {/* 2. Chia tiền nhóm */}
                     <button
                       type="button"
                       onClick={handleOpenKeypad}
-                      className="p-3 bg-white rounded-3xl border border-neutral-200/90 shadow-[0_4px_0_0_#e4e4e7] active:translate-y-1 active:shadow-none flex flex-col items-center gap-1.5 transition-all cursor-pointer"
+                      className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition-transform cursor-pointer"
                     >
-                      <div className="w-9 h-9 rounded-2xl bg-indigo-50 flex items-center justify-center p-1.5">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center p-1.5">
                         <img src={friendsIcon} alt="Chia bill" className="w-full h-full object-contain" />
                       </div>
-                      <span className="text-[11px] font-black text-neutral-800">Chia Bill</span>
+                      <span className="text-[11px] font-black text-neutral-800">Chia Tiền</span>
                     </button>
 
+                    {/* 3. Xem báo cáo chi tiêu */}
                     <button
                       type="button"
                       onClick={handleGoToReport}
-                      className="p-3 bg-white rounded-3xl border border-neutral-200/90 shadow-[0_4px_0_0_#e4e4e7] active:translate-y-1 active:shadow-none flex flex-col items-center gap-1.5 transition-all cursor-pointer"
+                      className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition-transform cursor-pointer"
                     >
-                      <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                         <Calculator size={18} />
                       </div>
-                      <span className="text-[11px] font-black text-neutral-800">Báo cáo</span>
+                      <span className="text-[11px] font-black text-neutral-800">Báo Cáo</span>
                     </button>
                   </div>
 
-                  {/* DẢI 1-TAP GHI NHANH VỚI HIỆU ỨNG NẢY PHÍM CƠ */}
-                  <div className="bg-white rounded-[32px] p-4 border border-neutral-200/90 shadow-sm space-y-3">
+                  {/* DẢI GHI NHANH 1 CHẠM: ĐỔI TÊN MÓN ĂN UỐNG QUEN THUỘC */}
+                  <div className="bg-white rounded-3xl p-4 border border-neutral-200/90 shadow-sm space-y-2.5">
                     <div className="flex justify-between items-center px-1">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 flex items-center gap-1">
-                        <Zap size={12} className="text-amber-500 fill-amber-400" /> 1-Tap · Chạm là trừ ví
+                      <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
+                        Chi Nhanh 1 Chạm (Bấm là xong)
                       </span>
-                      <span className="text-[10px] font-bold text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full">
-                        Có hoàn tác
+                      <span className="text-[10px] font-bold text-neutral-400">
+                        Bấm nhầm có hoàn tác
                       </span>
                     </div>
 
                     <div className="grid grid-cols-4 gap-2">
                       {[
-                        { name: 'Cà phê', cost: 30000, img: socialIcon, bg: 'hover:bg-amber-50' },
-                        { name: 'Cơm trưa', cost: 40000, img: foodIcon, bg: 'hover:bg-orange-50' },
-                        { name: 'Mua sắm', cost: 50000, img: spendingIcon, bg: 'hover:bg-purple-50' },
-                        { name: 'Ví quỹ', cost: 20000, img: walletIcon, bg: 'hover:bg-emerald-50' },
+                        { name: 'Cà phê', cost: 30000, img: socialIcon },
+                        { name: 'Cơm trưa', cost: 40000, img: foodIcon },
+                        { name: 'Đổ xăng', cost: 50000, img: spendingIcon },
+                        { name: 'Ăn vặt', cost: 25000, img: walletIcon },
                       ].map((item) => (
                         <button
                           key={item.name}
                           type="button"
                           onClick={() => handleQuickSpend(item.cost, item.name, item.name)}
-                          className={`py-3 px-1 rounded-2xl bg-[#FAFAFA] ${item.bg} border border-neutral-200/80 shadow-[0_3px_0_0_#e4e4e7] active:translate-y-1 active:shadow-none flex flex-col items-center gap-1 transition-all cursor-pointer`}
+                          className="py-3 px-1 rounded-2xl bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/60 flex flex-col items-center gap-1 active:scale-90 active:bg-amber-100 transition-all cursor-pointer"
                         >
-                          <img src={item.img} alt={item.name} className="w-8 h-8 object-contain drop-shadow-sm transition-transform active:scale-125" />
+                          <img src={item.img} alt={item.name} className="w-7 h-7 object-contain drop-shadow-xs" />
                           <span className="text-[11px] font-black text-[#18181B]">{item.name}</span>
-                          <span className="text-[10px] text-neutral-500 font-bold font-mono bg-white px-1.5 py-0.5 rounded-md border border-neutral-200/50">
+                          <span className="text-[10px] text-neutral-500 font-bold font-mono">
                             {(item.cost / 1000).toFixed(0)}k
                           </span>
                         </button>
@@ -578,32 +551,27 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* DANH SÁCH GIAO DỊCH GẦN ĐÂY NÂNG CẤP THỊ GIÁC */}
-                  <div className="bg-white rounded-[32px] p-4 shadow-sm border border-neutral-200/90 divide-y divide-neutral-100">
-                    <div className="flex justify-between items-center pb-2.5 px-1">
-                      <span className="text-xs font-black text-neutral-800 flex items-center gap-1.5">
-                        <Sparkles size={13} className="text-amber-500" /> Giao dịch gần nhất
-                      </span>
-                      <span className="text-[10px] font-bold text-neutral-400 font-mono bg-neutral-100 px-2 py-0.5 rounded-full">
+                  {/* CÁC KHOẢN TIÊU GẦN ĐÂY */}
+                  <div className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-200/90 divide-y divide-neutral-100">
+                    <div className="flex justify-between items-center pb-2 px-1">
+                      <span className="text-xs font-black text-neutral-800">Vừa chi tiêu gần đây</span>
+                      <span className="text-[10px] font-bold text-neutral-400 font-mono">
                         {transactions.length} khoản
                       </span>
                     </div>
 
                     {transactions.length === 0 ? (
-                      <div className="py-6 text-center space-y-1">
-                        <p className="text-xs text-neutral-400 font-medium">Chưa có khoản chi nào trong tháng</p>
-                        <p className="text-[10px] text-neutral-300">Chạm vào nút 1-Tap ở trên để ghi khoản đầu tiên ✨</p>
-                      </div>
+                      <p className="text-xs text-neutral-400 py-3 text-center">Chưa có khoản chi nào trong tháng</p>
                     ) : (
                       transactions.slice(0, 3).map((tx) => (
-                        <div key={tx.id} className="flex items-center justify-between py-2.5 hover:bg-neutral-50/50 rounded-xl px-1 transition-colors">
+                        <div key={tx.id} className="flex items-center justify-between py-2.5">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-9 h-9 rounded-2xl bg-neutral-100 border border-neutral-200/60 flex items-center justify-center text-neutral-700 shadow-xs">
+                            <div className="w-8 h-8 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-700">
                               {getCategoryIcon(tx.category)}
                             </div>
                             <div>
                               <h4 className="text-xs font-black text-[#18181B]">{tx.category}</h4>
-                              <p className="text-[10px] text-neutral-400 truncate max-w-[150px]">{tx.note || tx.bankName}</p>
+                              <p className="text-[10px] text-neutral-400">{tx.note || tx.bankName}</p>
                             </div>
                           </div>
                           <span className={`text-xs font-black font-mono ${tx.type === 'income' ? 'text-emerald-600' : 'text-[#18181B]'}`}>
@@ -636,14 +604,14 @@ export default function App() {
                         sounds.playKeypadTap();
                         if (typeof setIsFoodOpen === 'function') setIsFoodOpen(true);
                       }}
-                      className="bg-gradient-to-br from-[#18181B] to-[#27272A] text-white p-4 rounded-3xl flex flex-col justify-between text-left active:scale-95 transition-transform h-28 shadow-md border border-neutral-800 cursor-pointer"
+                      className="bg-[#18181B] text-white p-4 rounded-3xl flex flex-col justify-between text-left active:scale-95 transition-transform h-28 shadow-sm cursor-pointer"
                     >
-                      <div className="w-9 h-9 rounded-2xl bg-white/10 flex items-center justify-center p-1.5 shadow-inner">
+                      <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center p-1.5">
                         <img src={foodIcon} alt="Trưa nay ăn gì" className="w-full h-full object-contain" />
                       </div>
                       <div>
-                        <span className="text-[10px] text-neutral-400 block uppercase font-bold">Bàn Xoay 3D</span>
-                        <span className="text-xs font-black text-white">Trưa nay ăn gì?</span>
+                        <span className="text-[10px] text-neutral-400 block uppercase font-bold">Quay Món Ăn</span>
+                        <span className="text-xs font-black text-white">Hôm nay ăn gì?</span>
                       </div>
                     </button>
 
@@ -656,20 +624,20 @@ export default function App() {
                       }}
                       className="bg-white border border-neutral-200/80 p-4 rounded-3xl flex flex-col justify-between text-left active:scale-95 transition-transform h-28 shadow-sm cursor-pointer"
                     >
-                      <div className="w-9 h-9 rounded-2xl bg-indigo-50 flex items-center justify-center p-1">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center p-1">
                         <Moon size={18} className="text-indigo-500" />
                       </div>
                       <div>
-                        <span className="text-[10px] text-neutral-400 block uppercase font-bold">Bốc Quẻ Đêm</span>
-                        <span className="text-xs font-black text-[#18181B]">Làm gì chill?</span>
+                        <span className="text-[10px] text-neutral-400 block uppercase font-bold">Thư Giãn Đêm</span>
+                        <span className="text-xs font-black text-[#18181B]">Bốc quẻ bài</span>
                       </div>
                     </button>
                   </div>
 
-                  <div className="bg-white rounded-[32px] p-4 shadow-sm border border-neutral-200/90 space-y-2.5">
+                  <div className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-200/80 space-y-2.5">
                     <div className="flex justify-between items-center pb-1">
                       <span className="text-xs font-black text-[#18181B] flex items-center gap-1.5">
-                        <Calendar size={13} className="text-neutral-400" /> Tuyến lịch trình hôm nay
+                        <Calendar size={13} className="text-neutral-400" /> Lịch trình việc cần làm
                       </span>
                       <button
                         type="button"
@@ -680,12 +648,12 @@ export default function App() {
                         }}
                         className="text-[11px] font-bold text-neutral-500 hover:text-black flex items-center gap-0.5 cursor-pointer"
                       >
-                        <Plus size={12} /> Thêm ga
+                        <Plus size={12} /> Thêm việc
                       </button>
                     </div>
 
                     {todaySchedules.length === 0 ? (
-                      <p className="text-xs text-neutral-400 py-3 text-center">Chưa có lịch trình cho hôm nay</p>
+                      <p className="text-xs text-neutral-400 py-3 text-center">Chưa có việc nào cần làm hôm nay</p>
                     ) : (
                       todaySchedules.slice(0, 3).map((item) => (
                         <div
@@ -718,25 +686,25 @@ export default function App() {
           )}
 
           {activeTab === 'schedule' && (
-            <Suspense fallback={<div className="p-8 text-center text-xs text-neutral-400">Đang nạp Lịch trình...</div>}>
+            <Suspense fallback={<div className="p-8 text-center text-xs text-neutral-400">Đang tải Lịch trình...</div>}>
               <ScheduleTimeline />
             </Suspense>
           )}
           {activeTab === 'history' && (
-            <Suspense fallback={<div className="p-8 text-center text-xs text-neutral-400">Đang nạp Lịch sử...</div>}>
+            <Suspense fallback={<div className="p-8 text-center text-xs text-neutral-400">Đang tải Lịch sử...</div>}>
               <TransactionHistory />
             </Suspense>
           )}
           {activeTab === 'report' && (
-            <Suspense fallback={<div className="p-8 text-center text-xs text-neutral-400">Đang nạp Báo cáo...</div>}>
+            <Suspense fallback={<div className="p-8 text-center text-xs text-neutral-400">Đang tải Báo cáo...</div>}>
               <ReportView />
             </Suspense>
           )}
         </div>
 
-        {/* ================= TOAST HOÀN TÁC HIỆU ỨNG NỔI ================= */}
+        {/* ================= TOAST THÔNG BÁO HOÀN TÁC ================= */}
         {undoToast && (
-          <div className="fixed bottom-24 inset-x-4 max-w-sm mx-auto z-40 bg-[#18181B]/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between border border-white/10 animate-sheet-spring">
+          <div className="fixed bottom-24 inset-x-4 max-w-sm mx-auto z-40 bg-[#18181B] text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between border border-white/10 animate-sheet-spring">
             <span className="text-xs font-bold text-neutral-200">
               ✓ {undoToast.text}
             </span>
@@ -750,16 +718,16 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= MODAL CÀI ĐẶT & HỒ SƠ GOOGLE ================= */}
+        {/* ================= CÀI ĐẶT ================= */}
         {isSettingsOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-tab-switch">
             <div className="w-full max-w-sm bg-[#F8F8F7] rounded-t-[36px] sm:rounded-[36px] p-6 shadow-2xl relative border border-neutral-200 animate-sheet-spring space-y-4 max-h-[85vh] overflow-y-auto no-scrollbar">
               <div className="flex justify-between items-center">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 block">
-                    Cài đặt & Dữ liệu
+                    Cài đặt tài khoản
                   </span>
-                  <h3 className="text-lg font-black text-[#18181B]">Hồ Sơ Nếp Hub</h3>
+                  <h3 className="text-lg font-black text-[#18181B]">Hồ Sơ Của Bạn</h3>
                 </div>
                 <button
                   type="button"
@@ -794,7 +762,7 @@ export default function App() {
                       {notiEnabled ? <BellRing size={16} /> : <Bell size={16} />}
                     </div>
                     <div>
-                      <h5 className="text-xs font-black text-[#18181B]">Thông báo đẩy</h5>
+                      <h5 className="text-xs font-black text-[#18181B]">Thông báo nhắc nhở</h5>
                       <p className="text-[10px] text-neutral-400">Nhắc hạn mức và động viên</p>
                     </div>
                   </div>
@@ -812,8 +780,8 @@ export default function App() {
                       <Download size={16} />
                     </div>
                     <div>
-                      <h5 className="text-xs font-black text-[#18181B]">Tải bản sao lưu (JSON)</h5>
-                      <p className="text-[10px] text-neutral-400">Xuất toàn bộ sổ chi tiêu ra file</p>
+                      <h5 className="text-xs font-black text-[#18181B]">Tải bản sao lưu sổ</h5>
+                      <p className="text-[10px] text-neutral-400">Lưu lại toàn bộ lịch sử chi tiêu</p>
                     </div>
                   </div>
                   <ChevronRight size={15} className="text-neutral-400" />
@@ -829,7 +797,7 @@ export default function App() {
                     </div>
                     <div>
                       <h5 className="text-xs font-black text-[#18181B]">Khôi phục dữ liệu</h5>
-                      <p className="text-[10px] text-neutral-400">Nhập lại dữ liệu từ file JSON</p>
+                      <p className="text-[10px] text-neutral-400">Nhập lại sổ chi tiêu từ file</p>
                     </div>
                   </div>
                   <ChevronRight size={15} className="text-neutral-400" />
@@ -851,8 +819,8 @@ export default function App() {
                       <LogOut size={16} />
                     </div>
                     <div>
-                      <h5 className="text-xs font-black">Đăng xuất Google</h5>
-                      <p className="text-[10px] text-rose-400">Thoát tài khoản khỏi phiên hiện tại</p>
+                      <h5 className="text-xs font-black">Đăng xuất</h5>
+                      <p className="text-[10px] text-rose-400">Thoát tài khoản Google</p>
                     </div>
                   </div>
                   <ChevronRight size={15} className="text-rose-300" />
@@ -862,14 +830,14 @@ export default function App() {
               <div className="text-center pt-2">
                 <span className="text-[10px] font-bold text-neutral-400 flex items-center justify-center gap-1">
                   <ShieldCheck size={12} className="text-emerald-600" />
-                  Bảo vệ bởi Google Identity Services
+                  Bảo mật tài khoản Google
                 </span>
               </div>
             </div>
           </div>
         )}
 
-        {/* ================= THANH DOCK ĐÁY: ẨN KHI VÀO LOKCAM ================= */}
+        {/* ================= THANH DOCK ĐÁY: TỰ ĐỘNG ẨN KHI Ở LOKCAM ================= */}
         {!isLokCamActive && (
           <div className="fixed bottom-5 left-0 right-0 max-w-md mx-auto px-4 pointer-events-none z-30 transition-all duration-300">
             <FloatingDock />
