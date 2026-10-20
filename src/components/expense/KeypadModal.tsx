@@ -2,14 +2,11 @@ import React, { useState } from 'react';
 import { 
   X, 
   Users, 
-  Calculator, 
   Copy, 
   Check, 
   Plus, 
   Minus, 
-  Share2, 
-  Sparkles,
-  ArrowRight
+  Sparkles
 } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { sounds } from '../../utils/soundEngine';
@@ -173,7 +170,7 @@ export const KeypadModal: React.FC = () => {
           </div>
         </div>
 
-        {/* GHI CHÚ BỮA ĂN (TÙY CHỌN) */}
+        {/* GHI CHÚ BỮA ĂN */}
         <div>
           <input
             type="text"
@@ -184,26 +181,27 @@ export const KeypadModal: React.FC = () => {
           />
         </div>
 
-        {/* KẾT QUẢ TÍNH TOÁN TỨC THÌ */}
-        <div className="bg-gradient-to-br from-[#18181B] to-[#27272A] text-white rounded-3xl p-4.5 space-y-2 shadow-lg">
-          <div className="flex justify-between items-center text-neutral-400 text-xs font-bold">
+        {/* THẺ KẾT QUẢ ĐÃ SỬA LỖI PADDING VÀ VIỀN */}
+        <div className="bg-gradient-to-br from-[#18181B] to-[#27272A] text-white rounded-3xl p-5 space-y-2 shadow-lg overflow-hidden">
+          <div className="flex justify-between items-center text-neutral-300 text-xs font-bold pb-1">
             <span>Mỗi người cần chuyển:</span>
-            <span>{validPeople} phần đều nhau</span>
+            <span className="bg-white/10 px-2 py-0.5 rounded-full text-[10px] font-mono text-amber-300">
+              {validPeople} phần đều nhau
+            </span>
           </div>
 
           <div className="text-center py-1">
-            <h2 className="text-3xl font-black font-mono text-amber-400">
+            <h2 className="text-3xl font-black font-mono text-amber-400 tracking-tight">
               {perPerson.toLocaleString('vi-VN')}đ
             </h2>
-            <span className="text-[10px] text-neutral-400 font-semibold block mt-0.5">
+            <span className="text-[10px] text-neutral-400 font-semibold block mt-1">
               (Đã làm tròn số nghìn tiện chuyển khoản)
             </span>
           </div>
         </div>
 
-        {/* 2 HÀNH ĐỘNG TIỆN ÍCH */}
+        {/* BỘ NÚT HÀNH ĐỘNG */}
         <div className="space-y-2 pt-1">
-          {/* Nút 1: Sao chép tin nhắn đòi tiền */}
           <button
             type="button"
             onClick={handleCopyReminderMessage}
@@ -213,7 +211,6 @@ export const KeypadModal: React.FC = () => {
             <span>{copied ? 'Đã sao chép tin nhắn nhắc nợ!' : 'Sao chép tin nhắn gửi nhóm bạn'}</span>
           </button>
 
-          {/* Nút 2: Ghi nhận đúng phần của mình vào sổ chi tiêu */}
           <button
             type="button"
             onClick={handleRecordMyShare}
