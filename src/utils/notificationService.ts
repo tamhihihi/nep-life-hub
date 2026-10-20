@@ -1,144 +1,109 @@
-import { getCurrentEveningComfort } from '../data/eveningComfortMessages';
-
+// DỊCH VỤ THÔNG BÁO THÔNG MINH CHO NẾP HUB
 class NotificationService {
-  private hasPermission = false;
+  private permission: NotificationPermission = 'default';
 
   constructor() {
     if (typeof window !== 'undefined' && 'Notification' in window) {
-      this.hasPermission = Notification.permission === 'granted';
+      this.permission = Notification.permission;
     }
   }
 
   async requestPermission(): Promise<boolean> {
-    if (!('Notification' in window)) {
-      alert('Trình duyệt của bạn không hỗ trợ Web Notification.');
+    if (typeof window === 'undefined' || !('Notification' in window)) return false;
+    try {
+      const res = await Notification.requestPermission();
+      this.permission = res;
+      return res === 'granted';
+    } catch {
       return false;
     }
-    const permission = await Notification.requestPermission();
-    this.hasPermission = permission === 'granted';
-    return this.hasPermission;
   }
 
-  send(title: string, body: string, icon = '🔔', tag = 'nep-noti') {
-    if (!this.hasPermission) return;
+  send(title: string, body: string, icon = '✨') {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (this.permission !== 'granted') return;
+
     try {
       new Notification(title, {
         body,
-        icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
-        tag,
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
       });
-    } catch {
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.ready.then((reg) => {
-          reg.showNotification(title, { body, tag });
-        });
+    } catch {}
+  }
+
+  // THUẬT TOÁN QUÉT VÀ BẮN THÔNG BÁO LỊCH TRÌNH THỜI GIAN THỰC
+  checkScheduleNotifications(scheduleItems: any[]) {
+    if (!Array.isArray(scheduleItems) || scheduleItems.length === 0) return;
+
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    // Lọc các lịch trình chưa xong trong ngày hôm nay
+    const todayItems = scheduleItems.filter(
+      (item) => item?.dateStr === todayStr && !item?.completed && item?.startTime
+    );
+
+    todayItems.forEach((item) => {
+      const [hStr, mStr] = String(item.startTime).split(':');
+      const itemMinutes = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
+      const diff = itemMinutes - currentMinutes;
+
+      // 1. Nhắc trước 15 phút
+      const remindBefore = Number(item.remindBefore) || 15;
+      const remindKey = `nep_alert_${item.id}_${todayStr}_remind`;
+      if (diff > 0 && diff <= remindBefore && !sessionStorage.getItem(remindKey)) {
+        this.send(
+          `⏰ Sắp đến giờ: ${item.title}`, `Còn ${diff} phút nữa (Bắt đầu lúc ${item.startTime}). Chuẩn bị nhé!`,
+          '⏰'
+        );
+        sessionStorage.setItem(remindKey, 'true');
       }
+
+      // 2. Thông báo đúng giờ
+      const startKey = `nep_alert_${item.id}_${todayStr}_start`;
+      if (diff <= 0 && diff >= -5 && !sessionStorage.getItem(startKey)) {
+        this.send(
+          `🔔 Đến giờ hẹn: ${item.title}`, `Đã đến ${item.startTime}. Hãy bắt đầu công việc và tích hoàn thành khi xong!`,
+          '🔔'
+        );
+        sessionStorage.setItem(startKey, 'true');
+      }
+    });
+  }
+
+  checkInactivity(lastActiveTime: number) {
+    if (!lastActiveTime) return;
+    const diffHours = (Date.now() - lastActiveTime) / (1000 * 60 * 60);
+    if (diffHours >= 12 && !sessionStorage.getItem('nep_inactivity_notified')) {
+      this.send('🌿 Nếp nhớ bạn!', 'Hôm nay bạn đã ghi chép chi tiêu và công việc chưa?', '🌿');
+      sessionStorage.setItem('nep_inactivity_notified', 'true');
     }
   }
 
   checkBudgetThreshold(spent: number, limit: number) {
-    if (limit <= 0) return;
+    if (!limit || limit <= 0) return;
     const ratio = spent / limit;
-    const notifiedKey = `notified_threshold_${new Date().getMonth()}`;
-    const lastNotified = localStorage.getItem(notifiedKey);
-
-    if (ratio >= 1.0 && lastNotified !== '100') {
-      this.send(
-        '🚨 Chạm trần chi tiêu!',
-        `Bạn đã tiêu hết 100% hạn mức tháng (${spent.toLocaleString()}đ / ${limit.toLocaleString()}đ).`,
-        '🚨',
-        'budget-100'
-      );
-      localStorage.setItem(notifiedKey, '100');
-    } else if (ratio >= 0.9 && lastNotified !== '90' && lastNotified !== '100') {
-      this.send(
-        '⚠️ Sắp chạm trần ngân sách (90%)',
-        `Bạn đã dùng 90% hạn mức tháng. Còn lại: ${(limit - spent).toLocaleString()}đ.`,
-        '⚠️',
-        'budget-90'
-      );
-      localStorage.setItem(notifiedKey, '90');
-    } else if (ratio >= 0.8 && !lastNotified) {
-      this.send(
-        '📊 Cảnh báo hạn mức (80%)',
-        `Dòng tiền đã chạm 80% hạn mức tháng. Chú ý các khoản chi lớn nhé!`,
-        '📊',
-        'budget-80'
-      );
-      localStorage.setItem(notifiedKey, '80');
-    }
-  }
-
-  checkInactivity(lastActiveTimestamp: number) {
-    const now = Date.now();
-    const hoursPassed = (now - lastActiveTimestamp) / (1000 * 60 * 60);
-
-    if (hoursPassed >= 48) {
-      this.send(
-        '👋 Đã 2 ngày bạn chưa ghé Nếp',
-        'Vào cập nhật chi tiêu và lịch trình để không bị sót việc bạn nhé!',
-        '👋',
-        'inactive-reminder'
-      );
+    if (ratio >= 0.85 && !sessionStorage.getItem('nep_budget_warned')) {
+      this.send('⚠️ Chú ý ngân sách!', `Bạn đã tiêu ${(ratio * 100).toFixed(0)}% hạn mức tháng. Hãy tiêu vừa tay nhé!`, '⚠️');
+      sessionStorage.setItem('nep_budget_warned', 'true');
     }
   }
 
   checkDailyRoutine() {
-    const now = new Date();
-    const hour = now.getHours();
-    const minute = now.getMinutes();
-    const dateStr = now.toISOString().split('T')[0];
-
-    const morningKey = `noti_morning_${dateStr}`;
-    if (hour >= 8 && hour < 9 && !localStorage.getItem(morningKey)) {
-      this.send(
-        '☀️ Chào buổi sáng!',
-        'Kiểm tra tuyến Metro lịch trình hôm nay để bắt đầu ngày mới thật năng suất nhé.',
-        '☀️',
-        'routine-morning'
-      );
-      localStorage.setItem(morningKey, 'sent');
-    }
-
-    const lunchKey = `noti_lunch_${dateStr}`;
-    if (hour >= 11 && minute >= 30 && hour < 13 && !localStorage.getItem(lunchKey)) {
-      this.send(
-        '🍜 Trưa nay ăn gì ta?',
-        '11:30 rồi! Mở hòm cơm trưa CS:GO để xua tan nỗi phân vân ăn trưa nào.',
-        '🍜',
-        'routine-lunch'
-      );
-      localStorage.setItem(lunchKey, 'sent');
-    }
-
-    const eveningKey = `noti_evening_${dateStr}`;
-    if (hour >= 20 && hour < 22 && !localStorage.getItem(eveningKey)) {
-      this.send(
-        '🌙 Tối nay làm gì chill?',
-        'Bốc một lá bài Tarot đêm, bật tiếng mưa Lofi và kiểm tra lại sổ chi tiêu hôm nay nào.',
-        '🌙',
-        'routine-evening'
-      );
-      localStorage.setItem(eveningKey, 'sent');
+    const hour = new Date().getHours();
+    if (hour === 12 && !sessionStorage.getItem('nep_lunch_notified')) {
+      this.send('🍱 Đến giờ ăn trưa rồi!', 'Dừng tay nghỉ ngơi và ăn trưa đúng giờ nhé.', '🍱');
+      sessionStorage.setItem('nep_lunch_notified', 'true');
     }
   }
 
   checkEveningComfortRoutine() {
-    const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
-    const { slot, message } = getCurrentEveningComfort();
-
-    if (!slot || !message) return;
-
-    const storageKey = `noti_evening_comfort_${slot}_${dateStr}`;
-    if (!localStorage.getItem(storageKey)) {
-      this.send(
-        `${message.icon} ${message.title}`,
-        message.content,
-        message.icon,
-        `evening-comfort-${slot}`
-      );
-      localStorage.setItem(storageKey, 'sent');
+    const hour = new Date().getHours();
+    if (hour === 21 && !sessionStorage.getItem('nep_evening_notified')) {
+      this.send('🌙 Đêm đã về', 'Thả lỏng cơ thể, tổng kết ngày và bốc một quẻ bài thư giãn nhé.', '🌙');
+      sessionStorage.setItem('nep_evening_notified', 'true');
     }
   }
 }

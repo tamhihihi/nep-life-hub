@@ -30,6 +30,7 @@ import { userDataSync } from './services/userDataSync';
 import { notifier } from './utils/notificationService';
 import { sounds } from './utils/soundEngine';
 
+// IMPORT TRỰC TIẾP 6 ICON TỪ SRC/ASSETS/ICONS/
 import walletIcon from './assets/icons/wallet.png';
 import cameraIcon from './assets/icons/camera.png';
 import foodIcon from './assets/icons/food.png';
@@ -37,6 +38,7 @@ import friendsIcon from './assets/icons/friends.png';
 import socialIcon from './assets/icons/social.png';
 import spendingIcon from './assets/icons/spending.png';
 
+// TẢI TRỄ CÁC MODAL VÀ TAB NẶNG ĐỂ MỞ APP TỨC THÌ
 const QrScannerModal = lazy(() =>
   import('./components/expense/QrScannerModal').then((m) => ({ default: (m as any).QrScannerModal || (m as any).default }))
 );
@@ -125,6 +127,7 @@ export default function App() {
   const todayStr = now.toISOString().split('T')[0];
   const todaySchedules = scheduleItems.filter((i: any) => i?.dateStr === todayStr);
 
+  // ================= BƯỚC 4: KÍCH HOẠT QUÉT THÔNG BÁO LỊCH TRÌNH & ĐỊNH KỲ MỖI 1 PHÚT =================
   useEffect(() => {
     if (typeof updateLastActive === 'function') {
       notifier.checkInactivity(lastActiveTime);
@@ -138,13 +141,18 @@ export default function App() {
     notifier.checkDailyRoutine();
     notifier.checkEveningComfortRoutine();
 
+    // 1. Quét và bắn thông báo lịch trình ngay khi ứng dụng mở ra
+    notifier.checkScheduleNotifications(scheduleItems);
+
+    // 2. Chạy bộ hẹn giờ định kỳ mỗi 60 giây để bắt đúng phút nhắc hẹn trước 15p và đúng giờ
     const interval = setInterval(() => {
       notifier.checkDailyRoutine();
       notifier.checkEveningComfortRoutine();
-    }, 5 * 60 * 1000);
+      notifier.checkScheduleNotifications(scheduleItems);
+    }, 60 * 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [scheduleItems, transactions, monthlyLimit]);
 
   const handleLoginSuccess = async (user: GoogleUser) => {
     setCurrentUser(user);
@@ -222,7 +230,7 @@ export default function App() {
     if (granted) {
       notifier.send(
         '✨ Đã bật thông báo Nếp',
-        'Nếp sẽ nhắc nhở hạn mức và gửi lời nhắn động viên mỗi ngày.',
+        'Nếp sẽ nhắc nhở hạn mức và thông báo đúng giờ các ga lịch trình.',
         '✨'
       );
     }
@@ -261,7 +269,7 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  // HÀM GHI TIỀN AN TOÀN (KHÔNG GỌI GETSTATE, CẬP NHẬT TRỰC TIẾP)
+  // HÀM GHI TIỀN REALTIME (HỖ TRỢ CẢ CHI TIÊU (-) VÀ NẠP TIỀN (+))
   const handleQuickSpend = (amount: number, category: string, note: string, type: 'expense' | 'income' = 'expense') => {
     triggerHaptic('medium');
     try { sounds?.playKeypadTap?.(); } catch {}
@@ -391,7 +399,7 @@ export default function App() {
           : 'min-h-screen pb-36'
       }`}>
         
-        {/* HEADER */}
+        {/* ================= HEADER TỐI GIẢN ================= */}
         <header className="flex justify-between items-center mb-3 px-1 shrink-0">
           <div>
             <span className="text-[11px] font-bold text-neutral-400">
@@ -420,11 +428,11 @@ export default function App() {
           </button>
         </header>
 
-        {/* NỘI DUNG CHÍNH */}
+        {/* ================= NỘI DUNG CHÍNH THEO TAB DOCK ================= */}
         <div className={`flex-1 flex flex-col min-h-0 ${isLokCamActive ? 'overflow-hidden' : 'space-y-4'}`}>
           {activeTab === 'home' && (
             <>
-              {/* THANH 3 KHÔNG GIAN */}
+              {/* THANH CHUYỂN 3 KHÔNG GIAN DÙNG ICON VOXEL */}
               <div className="bg-neutral-200/80 p-1 rounded-2xl grid grid-cols-3 gap-1 shrink-0 mb-3 border border-neutral-300/40">
                 <button
                   type="button"
@@ -478,11 +486,12 @@ export default function App() {
                 </button>
               </div>
 
-              {/* VÍ TIỀN */}
+              {/* ----- KHÔNG GIAN 1: VÍ TIỀN REALTIME ----- */}
               {hubSection === 'wallet' && (
                 <div className="space-y-4 animate-tab-switch">
                   <ExpenseSummaryCard />
 
+                  {/* 3 NÚT TIỆN ÍCH */}
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
@@ -518,7 +527,7 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* DẢI 1-TAP CẢ CHI VÀ NẠP */}
+                  {/* DẢI 1-TAP 2 CHIỀU: CHI TIÊU (-) VÀ NẠP TIỀN (+) */}
                   <div className="bg-white rounded-3xl p-4 border border-neutral-200/90 shadow-sm space-y-3">
                     <div className="flex justify-between items-center px-1">
                       <div className="inline-flex bg-neutral-100 p-1 rounded-xl gap-1">
@@ -596,7 +605,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* LỊCH SỬ GIAO DỊCH */}
+                  {/* LỊCH SỬ GIAO DỊCH GẦN ĐÂY */}
                   <div className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-200/90 divide-y divide-neutral-100">
                     <div className="flex justify-between items-center pb-2 px-1">
                       <span className="text-xs font-black text-neutral-800">Giao dịch mới nhất</span>
@@ -629,14 +638,14 @@ export default function App() {
                 </div>
               )}
 
-              {/* LOKCAM */}
+              {/* ----- KHÔNG GIAN 2: LOKCAM (FIT 100DVH, KHÔNG TRÔI) ----- */}
               {hubSection === 'lokcam' && (
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden animate-tab-switch">
                   <NepMoments />
                 </div>
               )}
 
-              {/* NẾP CHILL */}
+              {/* ----- KHÔNG GIAN 3: NẾP CHILL ----- */}
               {hubSection === 'chill' && (
                 <div className="space-y-4 animate-tab-switch">
                   <EveningWhisperCard />
@@ -747,7 +756,7 @@ export default function App() {
           )}
         </div>
 
-        {/* TOAST HOÀN TÁC */}
+        {/* ================= TOAST THÔNG BÁO HOÀN TÁC ================= */}
         {undoToast && (
           <div className="fixed bottom-24 inset-x-4 max-w-sm mx-auto z-40 bg-[#18181B] text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between border border-white/10 animate-sheet-spring">
             <span className="text-xs font-bold text-neutral-200">
@@ -763,7 +772,7 @@ export default function App() {
           </div>
         )}
 
-        {/* CÀI ĐẶT */}
+        {/* ================= CÀI ĐẶT & HỒ SƠ GOOGLE ================= */}
         {isSettingsOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-tab-switch">
             <div className="w-full max-w-sm bg-[#F8F8F7] rounded-t-[36px] sm:rounded-[36px] p-6 shadow-2xl relative border border-neutral-200 animate-sheet-spring space-y-4 max-h-[85vh] overflow-y-auto no-scrollbar">
@@ -808,7 +817,7 @@ export default function App() {
                     </div>
                     <div>
                       <h5 className="text-xs font-black text-[#18181B]">Thông báo nhắc nhở</h5>
-                      <p className="text-[10px] text-neutral-400">Nhắc hạn mức và động viên</p>
+                      <p className="text-[10px] text-neutral-400">Nhắc lịch trình & hạn mức chi tiêu</p>
                     </div>
                   </div>
                   <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${notiEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-400'}`}>
@@ -882,7 +891,7 @@ export default function App() {
           </div>
         )}
 
-        {/* THANH DOCK ĐÁY */}
+        {/* ================= THANH DOCK ĐÁY: TỰ ĐỘNG ẨN KHI Ở LOKCAM ================= */}
         {!isLokCamActive && (
           <div className="fixed bottom-5 left-0 right-0 max-w-md mx-auto px-4 pointer-events-none z-30 transition-all duration-300">
             <FloatingDock />
