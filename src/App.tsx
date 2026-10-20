@@ -17,9 +17,7 @@ import {
   ChevronRight, 
   RotateCcw, 
   LogOut, 
-  ShieldCheck,
-  Zap,
-  Users
+  ShieldCheck
 } from 'lucide-react';
 import { useAppStore } from './stores/useAppStore';
 import { ExpenseSummaryCard } from './components/expense/ExpenseSummaryCard';
@@ -32,7 +30,6 @@ import { userDataSync } from './services/userDataSync';
 import { notifier } from './utils/notificationService';
 import { sounds } from './utils/soundEngine';
 
-// IMPORT TRỰC TIẾP 6 ICON TỪ SRC/ASSETS/ICONS/
 import walletIcon from './assets/icons/wallet.png';
 import cameraIcon from './assets/icons/camera.png';
 import foodIcon from './assets/icons/food.png';
@@ -75,18 +72,16 @@ const triggerHaptic = (type: 'light' | 'medium' | 'success' = 'light') => {
 
 export default function App() {
   const store = useAppStore();
-  const { 
-    activeTab, 
-    scheduleItems = [], 
-    transactions = [], 
-    monthlyLimit = 5000000, 
-    lastActiveTime, 
-    updateLastActive, 
-    setIsFoodOpen, 
-    setIsEveningOpen, 
-    toggleScheduleItem, 
-    setIsAddScheduleOpen 
-  } = store;
+  const activeTab = (store as any)?.activeTab || 'home';
+  const scheduleItems = (store as any)?.scheduleItems || [];
+  const transactions = (store as any)?.transactions || [];
+  const monthlyLimit = Number((store as any)?.monthlyLimit) || 5000000;
+  const lastActiveTime = (store as any)?.lastActiveTime;
+  const updateLastActive = (store as any)?.updateLastActive;
+  const setIsFoodOpen = (store as any)?.setIsFoodOpen;
+  const setIsEveningOpen = (store as any)?.setIsEveningOpen;
+  const toggleScheduleItem = (store as any)?.toggleScheduleItem;
+  const setIsAddScheduleOpen = (store as any)?.setIsAddScheduleOpen;
 
   const [currentUser, setCurrentUser] = useState<GoogleUser | null>(() => {
     try {
@@ -111,6 +106,7 @@ export default function App() {
   });
 
   const [hubSection, setHubSection] = useState<'wallet' | 'lokcam' | 'chill'>('wallet');
+  const [spendMode, setSpendMode] = useState<'expense' | 'income'>('expense');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [undoToast, setUndoToast] = useState<{ id: string; text: string } | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
@@ -127,7 +123,7 @@ export default function App() {
   const currentWeekday = weekdays[now.getDay()];
   const currentDateLabel = `${now.getDate()} thg ${now.getMonth() + 1}`;
   const todayStr = now.toISOString().split('T')[0];
-  const todaySchedules = scheduleItems.filter((i) => i.dateStr === todayStr);
+  const todaySchedules = scheduleItems.filter((i: any) => i?.dateStr === todayStr);
 
   useEffect(() => {
     if (typeof updateLastActive === 'function') {
@@ -135,9 +131,9 @@ export default function App() {
       updateLastActive();
     }
 
-    const monthSpent = transactions
-      .filter((t) => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const monthSpent = (transactions || [])
+      .filter((t: any) => t?.type === 'expense')
+      .reduce((sum: number, t: any) => sum + (Number(t?.amount) || 0), 0);
     notifier.checkBudgetThreshold(monthSpent, monthlyLimit);
     notifier.checkDailyRoutine();
     notifier.checkEveningComfortRoutine();
@@ -158,16 +154,17 @@ export default function App() {
     const isAlreadyOnboarded = localStorage.getItem(onboardKey);
 
     if (!isAlreadyOnboarded) {
-      useAppStore.setState({ transactions: [] });
-      if (typeof (store as any).setTransactions === 'function') {
+      if (typeof (store as any)?.setTransactions === 'function') {
         (store as any).setTransactions([]);
+      } else if (typeof (useAppStore as any)?.setState === 'function') {
+        (useAppStore as any).setState({ transactions: [] });
       }
       setShowOnboarding(true);
     } else {
       try {
         const savedData = await userDataSync.loadUserData(user.id);
-        if (savedData) {
-          useAppStore.setState({
+        if (savedData && typeof (useAppStore as any)?.setState === 'function') {
+          (useAppStore as any).setState({
             monthlyLimit: savedData.monthlyLimit,
             transactions: savedData.transactions || [],
             scheduleItems: savedData.scheduleItems || [],
@@ -180,15 +177,17 @@ export default function App() {
   const handleCompleteOnboarding = (initialLimit: number) => {
     if (!currentUser) return;
 
-    useAppStore.setState({
-      monthlyLimit: initialLimit,
-      transactions: [],
-    });
-
-    if (typeof store.setMonthlyLimit === 'function') {
-      store.setMonthlyLimit(initialLimit);
+    if (typeof (useAppStore as any)?.setState === 'function') {
+      (useAppStore as any).setState({
+        monthlyLimit: initialLimit,
+        transactions: [],
+      });
     }
-    if (typeof (store as any).setTransactions === 'function') {
+
+    if (typeof (store as any)?.setMonthlyLimit === 'function') {
+      (store as any).setMonthlyLimit(initialLimit);
+    }
+    if (typeof (store as any)?.setTransactions === 'function') {
       (store as any).setTransactions([]);
     }
 
@@ -262,7 +261,8 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  const handleQuickSpend = (amount: number, category: string, note: string) => {
+  // HÀM GHI TIỀN AN TOÀN (KHÔNG GỌI GETSTATE, CẬP NHẬT TRỰC TIẾP)
+  const handleQuickSpend = (amount: number, category: string, note: string, type: 'expense' | 'income' = 'expense') => {
     triggerHaptic('medium');
     try { sounds?.playKeypadTap?.(); } catch {}
 
@@ -270,26 +270,27 @@ export default function App() {
     const newTx = {
       id: newId,
       amount,
-      type: 'expense' as const,
+      type,
       category,
       bankName: 'Tiền mặt',
       note,
       dateStr: todayStr,
+      timestamp: Date.now(),
     };
 
-    if (typeof (store as any).addTransaction === 'function') {
+    if (typeof (store as any)?.addTransaction === 'function') {
       (store as any).addTransaction(newTx);
-    } else {
-      useAppStore.setState((prev: any) => ({
-        transactions: [newTx, ...(prev.transactions || [])],
+    } else if (typeof (useAppStore as any)?.setState === 'function') {
+      (useAppStore as any).setState((prev: any) => ({
+        transactions: [newTx, ...(prev?.transactions || [])],
       }));
     }
 
     if (currentUser) {
-      const currentList = [newTx, ...transactions];
       try {
+        const nextList = [newTx, ...(transactions || [])];
         userDataSync.syncUserData(currentUser.id, {
-          transactions: currentList,
+          transactions: nextList,
           scheduleItems,
           monthlyLimit,
         });
@@ -297,7 +298,11 @@ export default function App() {
     }
 
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setUndoToast({ id: newId, text: `Đã ghi ${category}: -${(amount / 1000).toFixed(0)}k` });
+    const sign = type === 'income' ? '+' : '-';
+    setUndoToast({
+      id: newId,
+      text: `Đã ${type === 'income' ? 'nạp' : 'ghi'} ${category}: ${sign}${(amount / 1000).toFixed(0)}k`,
+    });
 
     toastTimeoutRef.current = window.setTimeout(() => {
       setUndoToast(null);
@@ -307,19 +312,19 @@ export default function App() {
   const handleUndoSpend = () => {
     if (!undoToast) return;
     triggerHaptic('light');
-    sounds.playKeypadTap();
+    try { sounds?.playKeypadTap?.(); } catch {}
 
-    if (typeof (store as any).deleteTransaction === 'function') {
+    if (typeof (store as any)?.deleteTransaction === 'function') {
       (store as any).deleteTransaction(undoToast.id);
-    } else {
-      useAppStore.setState((prev: any) => ({
-        transactions: (prev.transactions || []).filter((t: any) => t.id !== undoToast.id),
+    } else if (typeof (useAppStore as any)?.setState === 'function') {
+      (useAppStore as any).setState((prev: any) => ({
+        transactions: (prev?.transactions || []).filter((t: any) => t?.id !== undoToast.id),
       }));
     }
 
     if (currentUser) {
-      const remainingTx = transactions.filter((t) => t.id !== undoToast.id);
       try {
+        const remainingTx = (transactions || []).filter((t: any) => t?.id !== undoToast.id);
         userDataSync.syncUserData(currentUser.id, {
           transactions: remainingTx,
           scheduleItems,
@@ -334,9 +339,9 @@ export default function App() {
   const handleOpenScanner = () => {
     triggerHaptic('light');
     sounds.playKeypadTap();
-    if (typeof (store as any).setIsQrOpen === 'function') {
+    if (typeof (store as any)?.setIsQrOpen === 'function') {
       (store as any).setIsQrOpen(true);
-    } else if (typeof (store as any).setIsScannerOpen === 'function') {
+    } else if (typeof (store as any)?.setIsScannerOpen === 'function') {
       (store as any).setIsScannerOpen(true);
     }
   };
@@ -344,7 +349,7 @@ export default function App() {
   const handleOpenKeypad = () => {
     triggerHaptic('light');
     sounds.playKeypadTap();
-    if (typeof (store as any).setIsKeypadOpen === 'function') {
+    if (typeof (store as any)?.setIsKeypadOpen === 'function') {
       (store as any).setIsKeypadOpen(true);
     }
   };
@@ -352,25 +357,26 @@ export default function App() {
   const handleGoToReport = () => {
     triggerHaptic('light');
     sounds.playKeypadTap();
-    if (typeof (store as any).setActiveTab === 'function') {
+    if (typeof (store as any)?.setActiveTab === 'function') {
       (store as any).setActiveTab('report');
-    } else {
-      useAppStore.setState({ activeTab: 'report' });
+    } else if (typeof (useAppStore as any)?.setState === 'function') {
+      (useAppStore as any).setState({ activeTab: 'report' });
     }
   };
 
   const getCategoryIcon = (cat: string) => {
+    if (!cat) return <img src={walletIcon} alt="Tiền" className="w-5 h-5 object-contain" />;
     if (cat.includes('Ăn') || cat.includes('Cơm')) {
       return <img src={foodIcon} alt="Cơm" className="w-5 h-5 object-contain" />;
     }
-    if (cat.includes('Mua') || cat.includes('Sắm')) {
+    if (cat.includes('Mua') || cat.includes('Sắm') || cat.includes('Lương')) {
       return <img src={spendingIcon} alt="Mua sắm" className="w-5 h-5 object-contain" />;
     }
     if (cat.includes('Cà phê')) {
       return <img src={socialIcon} alt="Cà phê" className="w-5 h-5 object-contain" />;
     }
     if (cat.includes('Grab') || cat.includes('Xăng')) return <Bus size={15} />;
-    return <img src={spendingIcon} alt="Chi tiêu" className="w-5 h-5 object-contain" />;
+    return <img src={walletIcon} alt="Tiền" className="w-5 h-5 object-contain" />;
   };
 
   if (!currentUser) {
@@ -385,7 +391,7 @@ export default function App() {
           : 'min-h-screen pb-36'
       }`}>
         
-        {/* ================= HEADER ĐƠN GIẢN, DỄ NHÌN ================= */}
+        {/* HEADER */}
         <header className="flex justify-between items-center mb-3 px-1 shrink-0">
           <div>
             <span className="text-[11px] font-bold text-neutral-400">
@@ -414,11 +420,11 @@ export default function App() {
           </button>
         </header>
 
-        {/* ================= NỘI DUNG CHÍNH ================= */}
+        {/* NỘI DUNG CHÍNH */}
         <div className={`flex-1 flex flex-col min-h-0 ${isLokCamActive ? 'overflow-hidden' : 'space-y-4'}`}>
           {activeTab === 'home' && (
             <>
-              {/* THANH 3 KHÔNG GIAN CÓ CHỮ RÕ RÀNG */}
+              {/* THANH 3 KHÔNG GIAN */}
               <div className="bg-neutral-200/80 p-1 rounded-2xl grid grid-cols-3 gap-1 shrink-0 mb-3 border border-neutral-300/40">
                 <button
                   type="button"
@@ -472,15 +478,12 @@ export default function App() {
                 </button>
               </div>
 
-              {/* ----- KHÔNG GIAN 1: VÍ TIỀN DỄ TIẾP CẬN NHẤT ----- */}
+              {/* VÍ TIỀN */}
               {hubSection === 'wallet' && (
                 <div className="space-y-4 animate-tab-switch">
-                  {/* THẺ TỔNG KẾT TIỀN THÁNG */}
                   <ExpenseSummaryCard />
 
-                  {/* 3 NÚT TIỆN ÍCH DỄ HIỂU NHẤT CHO NGƯỜI DÙNG */}
                   <div className="grid grid-cols-3 gap-2">
-                    {/* 1. Quét QR thanh toán */}
                     <button
                       type="button"
                       onClick={handleOpenScanner}
@@ -492,7 +495,6 @@ export default function App() {
                       <span className="text-[11px] font-black text-neutral-800">Quét VietQR</span>
                     </button>
 
-                    {/* 2. Chia tiền nhóm */}
                     <button
                       type="button"
                       onClick={handleOpenKeypad}
@@ -504,7 +506,6 @@ export default function App() {
                       <span className="text-[11px] font-black text-neutral-800">Chia Tiền</span>
                     </button>
 
-                    {/* 3. Xem báo cáo chi tiêu */}
                     <button
                       type="button"
                       onClick={handleGoToReport}
@@ -517,65 +518,109 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* DẢI GHI NHANH 1 CHẠM: ĐỔI TÊN MÓN ĂN UỐNG QUEN THUỘC */}
-                  <div className="bg-white rounded-3xl p-4 border border-neutral-200/90 shadow-sm space-y-2.5">
+                  {/* DẢI 1-TAP CẢ CHI VÀ NẠP */}
+                  <div className="bg-white rounded-3xl p-4 border border-neutral-200/90 shadow-sm space-y-3">
                     <div className="flex justify-between items-center px-1">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
-                        Chi Nhanh 1 Chạm (Bấm là xong)
-                      </span>
+                      <div className="inline-flex bg-neutral-100 p-1 rounded-xl gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setSpendMode('expense')}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black transition cursor-pointer ${
+                            spendMode === 'expense'
+                              ? 'bg-rose-500 text-white shadow-xs'
+                              : 'text-neutral-500 hover:text-black'
+                          }`}
+                        >
+                          - Chi Tiền
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSpendMode('income')}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-black transition cursor-pointer ${
+                            spendMode === 'income'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'text-neutral-500 hover:text-black'
+                          }`}
+                        >
+                          + Nạp Tiền
+                        </button>
+                      </div>
+
                       <span className="text-[10px] font-bold text-neutral-400">
-                        Bấm nhầm có hoàn tác
+                        {spendMode === 'expense' ? 'Trừ ví tức thì' : 'Cộng ví tức thì'}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-4 gap-2">
-                      {[
-                        { name: 'Cà phê', cost: 30000, img: socialIcon },
-                        { name: 'Cơm trưa', cost: 40000, img: foodIcon },
-                        { name: 'Đổ xăng', cost: 50000, img: spendingIcon },
-                        { name: 'Ăn vặt', cost: 25000, img: walletIcon },
-                      ].map((item) => (
-                        <button
-                          key={item.name}
-                          type="button"
-                          onClick={() => handleQuickSpend(item.cost, item.name, item.name)}
-                          className="py-3 px-1 rounded-2xl bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/60 flex flex-col items-center gap-1 active:scale-90 active:bg-amber-100 transition-all cursor-pointer"
-                        >
-                          <img src={item.img} alt={item.name} className="w-7 h-7 object-contain drop-shadow-xs" />
-                          <span className="text-[11px] font-black text-[#18181B]">{item.name}</span>
-                          <span className="text-[10px] text-neutral-500 font-bold font-mono">
-                            {(item.cost / 1000).toFixed(0)}k
-                          </span>
-                        </button>
-                      ))}
+                      {spendMode === 'expense' ? (
+                        [
+                          { name: 'Cà phê', cost: 30000, img: socialIcon },
+                          { name: 'Cơm trưa', cost: 40000, img: foodIcon },
+                          { name: 'Đổ xăng', cost: 50000, img: spendingIcon },
+                          { name: 'Ăn vặt', cost: 25000, img: walletIcon },
+                        ].map((item) => (
+                          <button
+                            key={item.name}
+                            type="button"
+                            onClick={() => handleQuickSpend(item.cost, item.name, item.name, 'expense')}
+                            className="py-3 px-1 rounded-2xl bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/60 flex flex-col items-center gap-1 active:scale-90 active:bg-rose-50 transition-all cursor-pointer"
+                          >
+                            <img src={item.img} alt={item.name} className="w-7 h-7 object-contain drop-shadow-xs" />
+                            <span className="text-[11px] font-black text-[#18181B]">{item.name}</span>
+                            <span className="text-[10px] text-rose-500 font-bold font-mono">
+                              -{(item.cost / 1000).toFixed(0)}k
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        [
+                          { name: 'Nạp ví', cost: 100000, img: walletIcon },
+                          { name: 'Lương về', cost: 2000000, img: spendingIcon },
+                          { name: 'Bạn trả', cost: 50000, img: friendsIcon },
+                          { name: 'Khoản khác', cost: 200000, img: socialIcon },
+                        ].map((item) => (
+                          <button
+                            key={item.name}
+                            type="button"
+                            onClick={() => handleQuickSpend(item.cost, item.name, item.name, 'income')}
+                            className="py-3 px-1 rounded-2xl bg-emerald-50/50 hover:bg-emerald-100 border border-emerald-200/60 flex flex-col items-center gap-1 active:scale-90 active:bg-emerald-200 transition-all cursor-pointer"
+                          >
+                            <img src={item.img} alt={item.name} className="w-7 h-7 object-contain drop-shadow-xs" />
+                            <span className="text-[11px] font-black text-emerald-900">{item.name}</span>
+                            <span className="text-[10px] text-emerald-600 font-bold font-mono">
+                              +{(item.cost / 1000).toFixed(0)}k
+                            </span>
+                          </button>
+                        ))
+                      )}
                     </div>
                   </div>
 
-                  {/* CÁC KHOẢN TIÊU GẦN ĐÂY */}
+                  {/* LỊCH SỬ GIAO DỊCH */}
                   <div className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-200/90 divide-y divide-neutral-100">
                     <div className="flex justify-between items-center pb-2 px-1">
-                      <span className="text-xs font-black text-neutral-800">Vừa chi tiêu gần đây</span>
+                      <span className="text-xs font-black text-neutral-800">Giao dịch mới nhất</span>
                       <span className="text-[10px] font-bold text-neutral-400 font-mono">
                         {transactions.length} khoản
                       </span>
                     </div>
 
                     {transactions.length === 0 ? (
-                      <p className="text-xs text-neutral-400 py-3 text-center">Chưa có khoản chi nào trong tháng</p>
+                      <p className="text-xs text-neutral-400 py-3 text-center">Chưa có giao dịch nào</p>
                     ) : (
-                      transactions.slice(0, 3).map((tx) => (
-                        <div key={tx.id} className="flex items-center justify-between py-2.5">
+                      transactions.slice(0, 3).map((tx: any) => (
+                        <div key={tx?.id || Math.random()} className="flex items-center justify-between py-2.5">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-700">
-                              {getCategoryIcon(tx.category)}
+                              {getCategoryIcon(tx?.category)}
                             </div>
                             <div>
-                              <h4 className="text-xs font-black text-[#18181B]">{tx.category}</h4>
-                              <p className="text-[10px] text-neutral-400">{tx.note || tx.bankName}</p>
+                              <h4 className="text-xs font-black text-[#18181B]">{tx?.category || 'Khoản chi'}</h4>
+                              <p className="text-[10px] text-neutral-400 truncate max-w-[150px]">{tx?.note || tx?.bankName || 'Tiền mặt'}</p>
                             </div>
                           </div>
-                          <span className={`text-xs font-black font-mono ${tx.type === 'income' ? 'text-emerald-600' : 'text-[#18181B]'}`}>
-                            {tx.type === 'income' ? '+' : '-'}{tx.amount.toLocaleString('vi-VN')}đ
+                          <span className={`text-xs font-black font-mono ${tx?.type === 'income' ? 'text-emerald-600' : 'text-[#18181B]'}`}>
+                            {tx?.type === 'income' ? '+' : '-'}{(Number(tx?.amount) || 0).toLocaleString('vi-VN')}đ
                           </span>
                         </div>
                       ))
@@ -584,14 +629,14 @@ export default function App() {
                 </div>
               )}
 
-              {/* ----- KHÔNG GIAN 2: LOKCAM ----- */}
+              {/* LOKCAM */}
               {hubSection === 'lokcam' && (
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden animate-tab-switch">
                   <NepMoments />
                 </div>
               )}
 
-              {/* ----- KHÔNG GIAN 3: NẾP CHILL ----- */}
+              {/* NẾP CHILL */}
               {hubSection === 'chill' && (
                 <div className="space-y-4 animate-tab-switch">
                   <EveningWhisperCard />
@@ -655,9 +700,9 @@ export default function App() {
                     {todaySchedules.length === 0 ? (
                       <p className="text-xs text-neutral-400 py-3 text-center">Chưa có việc nào cần làm hôm nay</p>
                     ) : (
-                      todaySchedules.slice(0, 3).map((item) => (
+                      todaySchedules.slice(0, 3).map((item: any) => (
                         <div
-                          key={item.id}
+                          key={item?.id || Math.random()}
                           onClick={() => {
                             triggerHaptic('light');
                             sounds.playKeypadTap();
@@ -666,12 +711,12 @@ export default function App() {
                           className="flex items-center justify-between p-2.5 rounded-2xl bg-[#F8F8F7] border border-neutral-200/50 cursor-pointer active:scale-98 transition-transform"
                         >
                           <div className="flex items-center gap-2.5">
-                            <span className="text-xs font-bold text-neutral-400 w-10 font-mono">{item.startTime}</span>
-                            <span className={`text-xs font-semibold ${item.completed ? 'line-through text-neutral-400' : 'text-[#18181B]'}`}>
-                              {item.title}
+                            <span className="text-xs font-bold text-neutral-400 w-10 font-mono">{item?.startTime}</span>
+                            <span className={`text-xs font-semibold ${item?.completed ? 'line-through text-neutral-400' : 'text-[#18181B]'}`}>
+                              {item?.title}
                             </span>
                           </div>
-                          {item.completed ? (
+                          {item?.completed ? (
                             <CheckCircle2 size={16} className="text-neutral-800" />
                           ) : (
                             <Circle size={16} className="text-neutral-300" />
@@ -702,7 +747,7 @@ export default function App() {
           )}
         </div>
 
-        {/* ================= TOAST THÔNG BÁO HOÀN TÁC ================= */}
+        {/* TOAST HOÀN TÁC */}
         {undoToast && (
           <div className="fixed bottom-24 inset-x-4 max-w-sm mx-auto z-40 bg-[#18181B] text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between border border-white/10 animate-sheet-spring">
             <span className="text-xs font-bold text-neutral-200">
@@ -718,7 +763,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= CÀI ĐẶT ================= */}
+        {/* CÀI ĐẶT */}
         {isSettingsOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-tab-switch">
             <div className="w-full max-w-sm bg-[#F8F8F7] rounded-t-[36px] sm:rounded-[36px] p-6 shadow-2xl relative border border-neutral-200 animate-sheet-spring space-y-4 max-h-[85vh] overflow-y-auto no-scrollbar">
@@ -797,7 +842,7 @@ export default function App() {
                     </div>
                     <div>
                       <h5 className="text-xs font-black text-[#18181B]">Khôi phục dữ liệu</h5>
-                      <p className="text-[10px] text-neutral-400">Nhập lại sổ chi tiêu từ file</p>
+                      <p className="text-[10px] text-neutral-400">Nhập lại sổ chi tiêu từ file JSON</p>
                     </div>
                   </div>
                   <ChevronRight size={15} className="text-neutral-400" />
@@ -837,7 +882,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ================= THANH DOCK ĐÁY: TỰ ĐỘNG ẨN KHI Ở LOKCAM ================= */}
+        {/* THANH DOCK ĐÁY */}
         {!isLokCamActive && (
           <div className="fixed bottom-5 left-0 right-0 max-w-md mx-auto px-4 pointer-events-none z-30 transition-all duration-300">
             <FloatingDock />
