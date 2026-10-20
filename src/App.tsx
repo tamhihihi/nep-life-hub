@@ -29,6 +29,7 @@ import { EveningWhisperCard } from './components/evening/EveningWhisperCard';
 import { NepMoments } from './components/expense/social/NepMoments';
 import { LoginView, GoogleUser } from './components/auth/LoginView';
 import { OnboardingModal } from './components/onboarding/OnboardingModal';
+import { SplashScreen } from './components/common/SplashScreen';
 import { SecurityLock } from './components/security/SecurityLock';
 import { SmartFinanceHubModal } from './components/expense/SmartFinanceHubModal';
 import { SplitBillModal } from './components/expense/SplitBillModal';
@@ -103,12 +104,10 @@ export default function App() {
   const toggleScheduleItem = (store as any)?.toggleScheduleItem;
   const setIsAddScheduleOpen = (store as any)?.setIsAddScheduleOpen;
 
-  const [isLocked, setIsLocked] = useState<boolean>(() => {
-    return localStorage.getItem('nep_security_enabled') === 'true';
-  });
+  // 1. ĐIỀU PHỐI 3 GIAI ĐOẠN KHỞI ĐỘNG: SPLASH -> AUTH -> MAIN
+  const [appPhase, setAppPhase] = useState<'splash' | 'auth' | 'main'>('splash');
 
   const [isSmartHubOpen, setIsSmartHubOpen] = useState(false);
-  // STATE TÁCH RIÊNG CHO NÚT CHIA BILL
   const [isSplitBillOpen, setIsSplitBillOpen] = useState(false);
 
   const [currentUser, setCurrentUser] = useState<GoogleUser | null>(() => {
@@ -317,10 +316,17 @@ export default function App() {
     return <img src={walletIcon} alt="Tiền" className="w-5 h-5 object-contain" />;
   };
 
-  if (isLocked) {
-    return <SecurityLock onUnlockSuccess={() => setIsLocked(false)} />;
+  // GIAI ĐOẠN 1: MÀN HÌNH CHÀO LOGO (SPLASH SCREEN)
+  if (appPhase === 'splash') {
+    return <SplashScreen onFinish={() => setAppPhase('auth')} />;
   }
 
+  // GIAI ĐOẠN 2: MÀN HÌNH ĐĂNG NHẬP FACE ID / VÂN TAY / MÃ PIN
+  if (appPhase === 'auth') {
+    return <SecurityLock onUnlockSuccess={() => setAppPhase('main')} />;
+  }
+
+  // GIAI ĐOẠN 3: ĐĂNG NHẬP GOOGLE HOẶC GIAO DIỆN CHÍNH
   if (!currentUser) {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;
   }
@@ -405,7 +411,7 @@ export default function App() {
                 <div className="space-y-4 animate-tab-switch">
                   <ExpenseSummaryCard />
 
-                  {/* 4 NÚT HÀNH ĐỘNG THÔNG MINH */}
+                  {/* 4 NÚT TIỆN ÍCH */}
                   <div className="grid grid-cols-4 gap-2">
                     <button
                       type="button"
@@ -418,7 +424,6 @@ export default function App() {
                       <span className="text-[10px] font-black text-neutral-800">Quét QR</span>
                     </button>
 
-                    {/* NÚT CHIA BILL MỞ MODAL SPLITBILL RIÊNG BIỆT */}
                     <button
                       type="button"
                       onClick={() => setIsSplitBillOpen(true)}
@@ -743,7 +748,7 @@ export default function App() {
                 </button>
               </div>
 
-              {/* BẬT / TẮT KHÓA MÃ PIN & FACE ID */}
+              {/* KHÓA PIN & FACE ID */}
               <div className="bg-neutral-900 text-white rounded-3xl p-3.5 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-black uppercase text-amber-400 flex items-center gap-1.5">
@@ -754,10 +759,7 @@ export default function App() {
                     onClick={() => {
                       const current = localStorage.getItem('nep_security_enabled') === 'true';
                       localStorage.setItem('nep_security_enabled', (!current).toString());
-                      if (!current && !localStorage.getItem('nep_security_pin')) {
-                        setIsLocked(true);
-                      }
-                      alert(!current ? 'Đã kích hoạt khóa PIN & Face ID!' : 'Đã tắt khóa bảo vệ.');
+                      alert(!current ? 'Đã bật bảo vệ PIN & Face ID khi mở app!' : 'Đã tắt khóa bảo vệ.');
                     }}
                     className="px-2.5 py-1 bg-amber-400 text-black text-[10px] font-black rounded-lg cursor-pointer"
                   >
@@ -765,7 +767,7 @@ export default function App() {
                   </button>
                 </div>
                 <p className="text-[10px] text-neutral-400">
-                  Bảo vệ số dư và giao dịch không bị người khác nhìn trộm khi mượn điện thoại.
+                  Tự động yêu cầu Face ID / Vân tay / PIN mỗi khi mở lại ứng dụng.
                 </p>
               </div>
 
@@ -876,13 +878,11 @@ export default function App() {
           </div>
         )}
 
-        {/* MODAL TRUNG TÂM VÍ SMART */}
         <SmartFinanceHubModal
           isOpen={isSmartHubOpen}
           onClose={() => setIsSmartHubOpen(false)}
         />
 
-        {/* MODAL CHIA BILL CHUYÊN BIỆT */}
         <SplitBillModal
           isOpen={isSplitBillOpen}
           onClose={() => setIsSplitBillOpen(false)}
