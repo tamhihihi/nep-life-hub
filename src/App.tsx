@@ -31,6 +31,7 @@ import { LoginView, GoogleUser } from './components/auth/LoginView';
 import { OnboardingModal } from './components/onboarding/OnboardingModal';
 import { SecurityLock } from './components/security/SecurityLock';
 import { SmartFinanceHubModal } from './components/expense/SmartFinanceHubModal';
+import { SplitBillModal } from './components/expense/SplitBillModal';
 import { userDataSync } from './services/userDataSync';
 import { notifier } from './utils/notificationService';
 import { sounds } from './utils/soundEngine';
@@ -107,6 +108,8 @@ export default function App() {
   });
 
   const [isSmartHubOpen, setIsSmartHubOpen] = useState(false);
+  // STATE TÁCH RIÊNG CHO NÚT CHIA BILL
+  const [isSplitBillOpen, setIsSplitBillOpen] = useState(false);
 
   const [currentUser, setCurrentUser] = useState<GoogleUser | null>(() => {
     try {
@@ -402,7 +405,7 @@ export default function App() {
                 <div className="space-y-4 animate-tab-switch">
                   <ExpenseSummaryCard />
 
-                  {/* 4 NÚT HÀNH ĐỘNG */}
+                  {/* 4 NÚT HÀNH ĐỘNG THÔNG MINH */}
                   <div className="grid grid-cols-4 gap-2">
                     <button
                       type="button"
@@ -415,9 +418,10 @@ export default function App() {
                       <span className="text-[10px] font-black text-neutral-800">Quét QR</span>
                     </button>
 
+                    {/* NÚT CHIA BILL MỞ MODAL SPLITBILL RIÊNG BIỆT */}
                     <button
                       type="button"
-                      onClick={() => store.setIsKeypadOpen?.(true)}
+                      onClick={() => setIsSplitBillOpen(true)}
                       className="p-2.5 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
                     >
                       <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center p-1">
@@ -872,9 +876,16 @@ export default function App() {
           </div>
         )}
 
+        {/* MODAL TRUNG TÂM VÍ SMART */}
         <SmartFinanceHubModal
           isOpen={isSmartHubOpen}
           onClose={() => setIsSmartHubOpen(false)}
+        />
+
+        {/* MODAL CHIA BILL CHUYÊN BIỆT */}
+        <SplitBillModal
+          isOpen={isSplitBillOpen}
+          onClose={() => setIsSplitBillOpen(false)}
         />
 
         {!isLokCamActive && (
