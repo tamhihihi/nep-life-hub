@@ -6,10 +6,7 @@ import {
   PiggyBank, 
   CalendarClock, 
   Plus, 
-  Check, 
-  ArrowRightLeft, 
-  Trash2,
-  Sparkles
+  Check
 } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { sounds } from '../../utils/soundEngine';
@@ -22,8 +19,7 @@ interface SmartFinanceHubModalProps {
 export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<'wallets' | 'debts' | 'savings' | 'subscriptions'>('wallets');
 
-  // 1. DỮ LIỆU ĐA VÍ
-  const [wallets, setWallets] = useState<any[]>(() => {
+  const [wallets] = useState<any[]>(() => {
     try {
       const s = localStorage.getItem('nep_multi_wallets');
       return s ? JSON.parse(s) : [
@@ -36,7 +32,6 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
     }
   });
 
-  // 2. DỮ LIỆU SỔ NỢ
   const [debts, setDebts] = useState<any[]>(() => {
     try {
       const s = localStorage.getItem('nep_debt_tracker');
@@ -49,7 +44,6 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
     }
   });
 
-  // 3. DỮ LIỆU HŨ TIẾT KIỆM
   const [savings, setSavings] = useState<any[]>(() => {
     try {
       const s = localStorage.getItem('nep_savings_goals');
@@ -62,7 +56,6 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
     }
   });
 
-  // 4. DỮ LIỆU THUÊ BAO ĐỊNH KỲ
   const [subscriptions, setSubscriptions] = useState<any[]>(() => {
     try {
       const s = localStorage.getItem('nep_recurring_bills');
@@ -76,7 +69,6 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
     }
   });
 
-  // Form thêm nhanh
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [formName, setFormName] = useState('');
   const [formAmount, setFormAmount] = useState('');
@@ -84,13 +76,11 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
 
   if (!isOpen) return null;
 
-  // XỬ LÝ SỔ NỢ: ĐÃ THU HOẶC ĐÃ TRẢ
   const handleResolveDebt = (debtId: string) => {
     try { sounds?.playChime?.(); } catch {}
     const target = debts.find((d) => d.id === debtId);
     if (!target) return;
 
-    // Tự động đồng bộ vào lịch sử thu/chi
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
@@ -115,7 +105,6 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
     localStorage.setItem('nep_debt_tracker', JSON.stringify(next));
   };
 
-  // BỎ ỐNG HEO TIẾT KIỆM
   const handleDepositSaving = (id: string, amount: number) => {
     try { sounds?.playChime?.(); } catch {}
     const next = savings.map((s) => (s.id === id ? { ...s, current: Math.min(s.target, s.current + amount) } : s));
@@ -123,7 +112,6 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
     localStorage.setItem('nep_savings_goals', JSON.stringify(next));
   };
 
-  // THÊM MỚI THEO TAB HIỆN TẠI
   const handleAddNew = (e: React.FormEvent) => {
     e.preventDefault();
     const numeric = parseInt(formAmount.replace(/\D/g, ''), 10) || 0;
@@ -152,10 +140,8 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-tab-switch">
       <div className="w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-[36px] p-6 shadow-2xl relative border border-neutral-200/90 max-h-[88dvh] overflow-y-auto no-scrollbar animate-sheet-spring space-y-4">
         
-        {/* THANH KÉO */}
         <div className="w-10 h-1 bg-neutral-300 rounded-full mx-auto sm:hidden" />
 
-        {/* TIÊU ĐỀ & ĐÓNG */}
         <div className="flex justify-between items-center">
           <div>
             <span className="text-[10px] font-black uppercase text-amber-600 block">Bộ công cụ tài chính</span>
@@ -170,7 +156,6 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
           </button>
         </div>
 
-        {/* 4 TAB ĐIỀU HƯỚNG */}
         <div className="grid grid-cols-4 gap-1 bg-neutral-100 p-1 rounded-2xl">
           {[
             { id: 'wallets', label: 'Đa Ví', icon: Wallet },
@@ -200,7 +185,6 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
           })}
         </div>
 
-        {/* NỘI DUNG 1: ĐA VÍ */}
         {activeTab === 'wallets' && (
           <div className="space-y-3 animate-tab-switch">
             <div className="flex justify-between items-center px-1">
@@ -231,7 +215,6 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
           </div>
         )}
 
-        {/* NỘI DUNG 2: SỔ NỢ 2 CHIỀU */}
         {activeTab === 'debts' && (
           <div className="space-y-3 animate-tab-switch">
             <div className="flex justify-between items-center px-1">
@@ -283,7 +266,6 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
           </div>
         )}
 
-        {/* NỘI DUNG 3: HŨ TIẾT KIỆM */}
         {activeTab === 'savings' && (
           <div className="space-y-3 animate-tab-switch">
             <div className="flex justify-between items-center px-1">
@@ -330,7 +312,6 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
           </div>
         )}
 
-        {/* NỘI DUNG 4: THUÊ BAO ĐỊNH KỲ */}
         {activeTab === 'subscriptions' && (
           <div className="space-y-3 animate-tab-switch">
             <div className="flex justify-between items-center px-1">
@@ -360,7 +341,6 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
           </div>
         )}
 
-        {/* FORM THÊM NHANH */}
         {isAddingItem && (
           <form onSubmit={handleAddNew} className="p-3.5 bg-amber-50/70 border border-amber-300/80 rounded-2xl space-y-2 animate-tab-switch">
             <input

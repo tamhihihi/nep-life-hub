@@ -9,14 +9,12 @@ export const ExpenseSummaryCard: React.FC = () => {
   const monthlyLimit = Number((store as any)?.monthlyLimit) || 5000000;
   const setMonthlyLimit = (store as any)?.setMonthlyLimit;
 
-  // Lấy ngày bắt đầu chu kỳ nhận lương (mặc định ngày 1)
   const salaryStartDay = Number(localStorage.getItem('nep_salary_start_day')) || 1;
 
   const [showAmount, setShowAmount] = useState(true);
   const [isEditingLimit, setIsEditingLimit] = useState(false);
   const [tempLimit, setTempLimit] = useState(monthlyLimit.toString());
 
-  // THUẬT TOÁN TÍNH TOÁN KHOẢNG NGÀY CHU KỲ LƯƠNG
   const now = new Date();
   const todayNum = now.getDate();
   const thisMonth = now.getMonth();
@@ -38,7 +36,6 @@ export const ExpenseSummaryCard: React.FC = () => {
 
   const safeTransactions = Array.isArray(transactions) ? transactions.filter(Boolean) : [];
 
-  // Lọc giao dịch nằm trong chu kỳ lương
   const cycleTransactions = safeTransactions.filter((t) => {
     if (!t?.dateStr) return true;
     return t.dateStr >= startDateStr && t.dateStr <= endDateStr;
@@ -56,7 +53,6 @@ export const ExpenseSummaryCard: React.FC = () => {
   const totalBudget = monthlyLimit + totalIncome;
   const percentUsed = totalBudget > 0 ? Math.min(100, Math.round((totalExpense / totalBudget) * 100)) : 100;
 
-  // Tính số ngày còn lại trong chu kỳ
   const msLeft = cycleEndDate.getTime() - now.getTime();
   const daysLeft = Math.max(1, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
   const dailyAllowance = Math.round(Math.max(0, availableBalance) / daysLeft);

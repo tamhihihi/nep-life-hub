@@ -18,9 +18,9 @@ import {
   RotateCcw, 
   LogOut, 
   ShieldCheck,
-  Settings,
   Edit2,
-  Check
+  WalletCards,
+  Lock
 } from 'lucide-react';
 import { useAppStore } from './stores/useAppStore';
 import { ExpenseSummaryCard } from './components/expense/ExpenseSummaryCard';
@@ -29,6 +29,8 @@ import { EveningWhisperCard } from './components/evening/EveningWhisperCard';
 import { NepMoments } from './components/expense/social/NepMoments';
 import { LoginView, GoogleUser } from './components/auth/LoginView';
 import { OnboardingModal } from './components/onboarding/OnboardingModal';
+import { SecurityLock } from './components/security/SecurityLock';
+import { SmartFinanceHubModal } from './components/expense/SmartFinanceHubModal';
 import { userDataSync } from './services/userDataSync';
 import { notifier } from './utils/notificationService';
 import { sounds } from './utils/soundEngine';
@@ -100,6 +102,12 @@ export default function App() {
   const toggleScheduleItem = (store as any)?.toggleScheduleItem;
   const setIsAddScheduleOpen = (store as any)?.setIsAddScheduleOpen;
 
+  const [isLocked, setIsLocked] = useState<boolean>(() => {
+    return localStorage.getItem('nep_security_enabled') === 'true';
+  });
+
+  const [isSmartHubOpen, setIsSmartHubOpen] = useState(false);
+
   const [currentUser, setCurrentUser] = useState<GoogleUser | null>(() => {
     try {
       const saved = localStorage.getItem('nep_user_session_v1');
@@ -128,15 +136,10 @@ export default function App() {
   const [undoToast, setUndoToast] = useState<{ id: string; text: string } | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
 
-  // IN-APP NOTIFICATION BANNER (DYNAMIC ISLAND)
-  const [inAppBanner, setInAppBanner] = useState<{ title: string; body: string } | null>(null);
-
-  // CẤU HÌNH NGÀY NHẬN LƯƠNG
   const [salaryDay, setSalaryDay] = useState<number>(() => {
     return Number(localStorage.getItem('nep_salary_start_day')) || 1;
   });
 
-  // TÙY BIẾN DẢI NÚT 1-TAP
   const [expensePresets, setExpensePresets] = useState<PresetItem[]>(() => {
     try {
       const saved = localStorage.getItem('nep_expense_presets');
@@ -162,43 +165,25 @@ export default function App() {
   const todayStr = now.toISOString().split('T')[0];
   const todaySchedules = scheduleItems.filter((i: any) => i?.dateStr === todayStr);
 
-  // QUÉT LỊCH TRÌNH VÀ BẮN BANNER DYNAMIC ISLAND
   useEffect(() => {
     if (typeof updateLastActive === 'function') {
       notifier.checkInactivity(lastActiveTime);
       updateLastActive();
     }
 
-    const checkSchedules = () => {
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-      scheduleItems
-        .filter((item: any) => item?.dateStr === todayStr && !item?.completed && item?.startTime)
-        .forEach((item: any) => {
-          const [h, m] = String(item.startTime).split(':');
-          const itemMinutes = parseInt(h, 10) * 60 + parseInt(m, 10);
-          const diff = itemMinutes - currentMinutes;
+    notifier.checkScheduleNotifications(scheduleItems);
+    const interval = setInterval(() => {
+      notifier.checkDailyRoutine();
+      notifier.checkEveningComfortRoutine();
+      notifier.checkScheduleNotifications(scheduleItems);
+    }, 60 * 1000);
 
-          if (diff === 15 || diff === 0) {
-            triggerHaptic('medium');
-            sounds.playChime();
-            setInAppBanner({
-              title: diff === 15 ? `⏰ Sắp đến giờ: ${item.title}` : `🔔 Đến giờ: ${item.title}`,
-              body: `Lúc ${item.startTime} hôm nay. Nhớ thực hiện nhé!`,
-            });
-            setTimeout(() => setInAppBanner(null), 5000);
-          }
-        });
-    };
-
-    checkSchedules();
-    const interval = setInterval(checkSchedules, 60 * 1000);
     return () => clearInterval(interval);
   }, [scheduleItems]);
 
   const handleLoginSuccess = async (user: GoogleUser) => {
     setCurrentUser(user);
     localStorage.setItem('nep_user_session_v1', JSON.stringify(user));
-
     const onboardKey = `nep_onboarded_${user.id}`;
     if (!localStorage.getItem(onboardKey)) {
       useAppStore.setState({ transactions: [] });
@@ -236,7 +221,7 @@ export default function App() {
     const granted = await notifier.requestPermission();
     setNotiEnabled(granted);
     if (granted) {
-      notifier.send('✨ Đã bật thông báo Nếp', 'Nếp sẽ nhắc nhở các mốc giờ lịch trình.', '✨');
+      notifier.send('✨ Đã bật thông báo Nếp', 'Nếp sẽ nhắc nhở hạn mức và lịch trình.', '✨');
     }
   };
 
@@ -329,26 +314,16 @@ export default function App() {
     return <img src={walletIcon} alt="Tiền" className="w-5 h-5 object-contain" />;
   };
 
+  if (isLocked) {
+    return <SecurityLock onUnlockSuccess={() => setIsLocked(false)} />;
+  }
+
   if (!currentUser) {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
     <div className={`min-h-screen bg-[#F8F8F7] text-[#18181B] font-sans flex flex-col justify-between selection:bg-neutral-200 ${isLokCamActive ? 'h-[100dvh] overflow-hidden' : ''}`}>
-      
-      {/* IN-APP DYNAMIC ISLAND BANNER */}
-      {inAppBanner && (
-        <div className="fixed top-4 inset-x-4 max-w-sm mx-auto z-50 bg-[#18181B] text-white p-3.5 rounded-3xl shadow-2xl border border-white/20 flex items-center justify-between animate-sheet-spring">
-          <div>
-            <h5 className="text-xs font-black text-amber-400">{inAppBanner.title}</h5>
-            <p className="text-[11px] text-neutral-300 font-semibold">{inAppBanner.body}</p>
-          </div>
-          <button onClick={() => setInAppBanner(null)} className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
       <main className={`w-full max-w-md mx-auto flex flex-col px-4 pt-4 ${
         isLokCamActive ? 'h-[100dvh] overflow-hidden pb-3' : 'min-h-screen pb-36'
       }`}>
@@ -427,43 +402,54 @@ export default function App() {
                 <div className="space-y-4 animate-tab-switch">
                   <ExpenseSummaryCard />
 
-                  {/* 3 PHÍM TIỆN ÍCH */}
-                  <div className="grid grid-cols-3 gap-2">
+                  {/* 4 NÚT HÀNH ĐỘNG */}
+                  <div className="grid grid-cols-4 gap-2">
                     <button
                       type="button"
                       onClick={() => store.setIsQrOpen?.(true)}
-                      className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                      className="p-2.5 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
                     >
-                      <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                        <QrCode size={18} />
+                      <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                        <QrCode size={16} />
                       </div>
-                      <span className="text-[11px] font-black text-neutral-800">Quét VietQR</span>
+                      <span className="text-[10px] font-black text-neutral-800">Quét QR</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => store.setIsKeypadOpen?.(true)}
-                      className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                      className="p-2.5 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
                     >
-                      <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center p-1.5">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center p-1">
                         <img src={friendsIcon} alt="Chia bill" className="w-full h-full object-contain" />
                       </div>
-                      <span className="text-[11px] font-black text-neutral-800">Chia Tiền</span>
+                      <span className="text-[10px] font-black text-neutral-800">Chia Bill</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsSmartHubOpen(true)}
+                      className="p-2.5 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                        <WalletCards size={16} />
+                      </div>
+                      <span className="text-[10px] font-black text-neutral-800">Ví Smart</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => useAppStore.setState({ activeTab: 'report' })}
-                      className="p-3 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                      className="p-2.5 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
                     >
-                      <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                        <Calculator size={18} />
+                      <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                        <Calculator size={16} />
                       </div>
-                      <span className="text-[11px] font-black text-neutral-800">Báo Cáo</span>
+                      <span className="text-[10px] font-black text-neutral-800">Báo Cáo</span>
                     </button>
                   </div>
 
-                  {/* DẢI 1-TAP CÓ THỂ CHỈNH SỬA TÊN & SỐ TIỀN */}
+                  {/* DẢI 1-TAP */}
                   <div className="bg-white rounded-3xl p-4 border border-neutral-200/90 shadow-sm space-y-3">
                     <div className="flex justify-between items-center px-1">
                       <div className="inline-flex bg-neutral-100 p-1 rounded-xl gap-1">
@@ -510,7 +496,6 @@ export default function App() {
                               </span>
                             </button>
 
-                            {/* Nút sửa nhỏ ở góc */}
                             <button
                               type="button"
                               onClick={(e) => {
@@ -548,7 +533,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* GIAO DỊCH GẦN ĐÂY */}
+                  {/* LỊCH SỬ GIAO DỊCH */}
                   <div className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-200/90 divide-y divide-neutral-100">
                     <div className="flex justify-between items-center pb-2 px-1">
                       <span className="text-xs font-black text-neutral-800">Giao dịch mới nhất</span>
@@ -736,7 +721,7 @@ export default function App() {
           </div>
         )}
 
-        {/* MODAL CÀI ĐẶT (BỔ SUNG CHỌN NGÀY NHẬN LƯƠNG) */}
+        {/* CÀI ĐẶT */}
         {isSettingsOpen && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
             <div className="w-full max-w-sm bg-[#F8F8F7] rounded-t-[36px] sm:rounded-[36px] p-6 shadow-2xl relative border border-neutral-200 space-y-4 max-h-[85vh] overflow-y-auto no-scrollbar">
@@ -754,7 +739,33 @@ export default function App() {
                 </button>
               </div>
 
-              {/* KHỐI CHỌN NGÀY NHẬN LƯƠNG */}
+              {/* BẬT / TẮT KHÓA MÃ PIN & FACE ID */}
+              <div className="bg-neutral-900 text-white rounded-3xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase text-amber-400 flex items-center gap-1.5">
+                    <Lock size={13} /> Khóa bảo vệ mã PIN & Face ID
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = localStorage.getItem('nep_security_enabled') === 'true';
+                      localStorage.setItem('nep_security_enabled', (!current).toString());
+                      if (!current && !localStorage.getItem('nep_security_pin')) {
+                        setIsLocked(true);
+                      }
+                      alert(!current ? 'Đã kích hoạt khóa PIN & Face ID!' : 'Đã tắt khóa bảo vệ.');
+                    }}
+                    className="px-2.5 py-1 bg-amber-400 text-black text-[10px] font-black rounded-lg cursor-pointer"
+                  >
+                    {localStorage.getItem('nep_security_enabled') === 'true' ? 'ĐANG BẬT' : 'BẬT NGAY'}
+                  </button>
+                </div>
+                <p className="text-[10px] text-neutral-400">
+                  Bảo vệ số dư và giao dịch không bị người khác nhìn trộm khi mượn điện thoại.
+                </p>
+              </div>
+
+              {/* NGÀY NHẬN LƯƠNG */}
               <div className="bg-amber-500/10 border border-amber-300/60 rounded-3xl p-3.5 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-black uppercase text-amber-900">
@@ -860,6 +871,11 @@ export default function App() {
             </div>
           </div>
         )}
+
+        <SmartFinanceHubModal
+          isOpen={isSmartHubOpen}
+          onClose={() => setIsSmartHubOpen(false)}
+        />
 
         {!isLokCamActive && (
           <div className="fixed bottom-5 left-0 right-0 max-w-md mx-auto px-4 pointer-events-none z-30">

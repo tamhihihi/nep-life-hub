@@ -24,7 +24,6 @@ export const KeypadModal: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [showQrCode, setShowQrCode] = useState(false);
 
-  // THÔNG TIN TÀI KHOẢN NGÂN HÀNG NHẬN TIỀN CỦA BẠN (LƯU CỤC BỘ)
   const [bankId, setBankId] = useState(() => localStorage.getItem('nep_my_bank_id') || 'MB');
   const [accountNo, setAccountNo] = useState(() => localStorage.getItem('nep_my_account_no') || '0988888888');
   const [accountName, setAccountName] = useState(() => localStorage.getItem('nep_my_account_name') || 'NGUYEN VAN A');
@@ -99,7 +98,6 @@ export const KeypadModal: React.FC = () => {
     setIsEditingBank(false);
   };
 
-  // URL TẠO MÃ VIETQR ĐỘNG CHUẨN TỨC THÌ
   const qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${perPerson}&addInfo=${encodeURIComponent(
     `Chia tien ${billNote.trim() || 'bill'}`
   )}&accountName=${encodeURIComponent(accountName)}`;
@@ -131,7 +129,6 @@ export const KeypadModal: React.FC = () => {
           </button>
         </div>
 
-        {/* BƯỚC 1: NHẬP TỔNG TIỀN */}
         <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200/70 space-y-1 text-center">
           <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">
             Tổng tiền hóa đơn
@@ -149,7 +146,6 @@ export const KeypadModal: React.FC = () => {
           </div>
         </div>
 
-        {/* BƯỚC 2: CHỌN SỐ LƯỢNG NGƯỜI */}
         <div className="bg-neutral-50 rounded-2xl p-3.5 border border-neutral-200/70 flex items-center justify-between">
           <div>
             <span className="text-xs font-black text-[#18181B] block">Số người chia</span>
@@ -195,7 +191,7 @@ export const KeypadModal: React.FC = () => {
           />
         </div>
 
-        {/* THẺ KẾT QUẢ */}
+        {/* THẺ KẾT QUẢ ĐÃ SỬA LỖI PADDING */}
         <div className="bg-gradient-to-br from-[#18181B] to-[#27272A] text-white rounded-3xl p-5 space-y-2 shadow-lg overflow-hidden">
           <div className="flex justify-between items-center text-neutral-300 text-xs font-bold pb-1">
             <span>Mỗi người cần chuyển:</span>
@@ -208,10 +204,12 @@ export const KeypadModal: React.FC = () => {
             <h2 className="text-3xl font-black font-mono text-amber-400 tracking-tight">
               {perPerson.toLocaleString('vi-VN')}đ
             </h2>
+            <span className="text-[10px] text-neutral-400 font-semibold block mt-1">
+              (Đã làm tròn số nghìn tiện chuyển khoản)
+            </span>
           </div>
         </div>
 
-        {/* NÚT MỞ MÃ VIETQR ĐỘNG CHO BẠN BÈ QUÉT */}
         {perPerson > 0 && (
           <div className="space-y-2">
             <button
@@ -232,7 +230,6 @@ export const KeypadModal: React.FC = () => {
                   Bạn bè chỉ cần mở camera hoặc app ngân hàng quét mã này là tiền tự điền đúng {perPerson.toLocaleString('vi-VN')}đ.
                 </p>
 
-                {/* SỬA THÔNG TIN TÀI KHOẢN NHẬN TIỀN */}
                 <div className="text-left pt-2 border-t border-neutral-200">
                   <button
                     type="button"
@@ -282,7 +279,6 @@ export const KeypadModal: React.FC = () => {
           </div>
         )}
 
-        {/* 2 HÀNH ĐỘNG */}
         <div className="space-y-2 pt-1">
           <button
             type="button"

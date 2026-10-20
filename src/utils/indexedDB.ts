@@ -1,4 +1,3 @@
-// BỘ LƯU TRỮ ẢNH KHÔNG GIỚI HẠN VỚI INDEXEDDB (CHỐNG TRÀN 5MB LOCALSTORAGE)
 const DB_NAME = 'nep_lokcam_database_v1';
 const STORE_NAME = 'moments_photos';
 const DB_VERSION = 1;
