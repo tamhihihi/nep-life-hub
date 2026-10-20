@@ -6,7 +6,9 @@ import {
   Check, 
   Plus, 
   Minus, 
-  Sparkles
+  Sparkles,
+  QrCode,
+  CreditCard
 } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { sounds } from '../../utils/soundEngine';
@@ -20,6 +22,13 @@ export const KeypadModal: React.FC = () => {
   const [peopleCount, setPeopleCount] = useState(3);
   const [billNote, setBillNote] = useState('');
   const [copied, setCopied] = useState(false);
+  const [showQrCode, setShowQrCode] = useState(false);
+
+  // THÔNG TIN TÀI KHOẢN NGÂN HÀNG NHẬN TIỀN CỦA BẠN (LƯU CỤC BỘ)
+  const [bankId, setBankId] = useState(() => localStorage.getItem('nep_my_bank_id') || 'MB');
+  const [accountNo, setAccountNo] = useState(() => localStorage.getItem('nep_my_account_no') || '0988888888');
+  const [accountName, setAccountName] = useState(() => localStorage.getItem('nep_my_account_name') || 'NGUYEN VAN A');
+  const [isEditingBank, setIsEditingBank] = useState(false);
 
   if (!isKeypadOpen) return null;
 
@@ -30,11 +39,9 @@ export const KeypadModal: React.FC = () => {
     }
   };
 
-  // Tính toán số tiền mỗi người
   const numericTotal = parseInt(totalBill.replace(/\D/g, ''), 10) || 0;
   const validPeople = Math.max(1, peopleCount);
   const perPersonRaw = Math.round(numericTotal / validPeople);
-  // Làm tròn đến hàng nghìn gần nhất để dễ chuyển khoản
   const perPerson = Math.ceil(perPersonRaw / 1000) * 1000;
 
   const handleBillInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,20 +54,18 @@ export const KeypadModal: React.FC = () => {
     setTotalBill(num.toLocaleString('vi-VN'));
   };
 
-  // Sao chép tin nhắn đòi tiền gửi nhóm bạn
   const handleCopyReminderMessage = () => {
     if (numericTotal <= 0) return;
     try { sounds?.playKeypadTap?.(); } catch {}
 
     const noteText = billNote.trim() ? `tiền "${billNote.trim()}"` : 'hóa đơn';
-    const message = `✨ Tổng ${noteText} hết ${numericTotal.toLocaleString('vi-VN')}đ chia đều cho ${validPeople} người.\n👉 Mỗi người chuyển cho mình: ${perPerson.toLocaleString('vi-VN')}đ nhé! Cảm ơn cả nhà ✨`;
+    const message = `✨ Tổng ${noteText} hết ${numericTotal.toLocaleString('vi-VN')}đ chia đều cho ${validPeople} người.\n👉 Mỗi người chuyển cho mình: ${perPerson.toLocaleString('vi-VN')}đ\nSTK: ${accountNo} (${bankId}) - ${accountName}\nCảm ơn cả nhà! ✨`;
 
     navigator.clipboard?.writeText(message);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
 
-  // Ghi đúng phần của mình vào sổ chi tiêu
   const handleRecordMyShare = () => {
     if (perPerson <= 0) return;
     try { sounds?.playChime?.(); } catch {}
@@ -87,14 +92,24 @@ export const KeypadModal: React.FC = () => {
     handleClose();
   };
 
+  const handleSaveBankInfo = () => {
+    localStorage.setItem('nep_my_bank_id', bankId);
+    localStorage.setItem('nep_my_account_no', accountNo);
+    localStorage.setItem('nep_my_account_name', accountName);
+    setIsEditingBank(false);
+  };
+
+  // URL TẠO MÃ VIETQR ĐỘNG CHUẨN TỨC THÌ
+  const qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${perPerson}&addInfo=${encodeURIComponent(
+    `Chia tien ${billNote.trim() || 'bill'}`
+  )}&accountName=${encodeURIComponent(accountName)}`;
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-tab-switch">
       <div className="w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-[36px] p-6 shadow-2xl relative border border-neutral-200/90 max-h-[90dvh] overflow-y-auto no-scrollbar animate-sheet-spring space-y-4">
         
-        {/* THANH KÉO DI ĐỘNG */}
         <div className="w-10 h-1 bg-neutral-300 rounded-full mx-auto sm:hidden" />
 
-        {/* TIÊU ĐỀ */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
@@ -104,7 +119,7 @@ export const KeypadModal: React.FC = () => {
               <span className="text-[10px] font-black uppercase text-indigo-600 block">
                 Tiện ích nhóm
               </span>
-              <h3 className="text-base font-black text-[#18181B]">Chia Tiền Hóa Đơn</h3>
+              <h3 className="text-base font-black text-[#18181B]">Chia Tiền & Nhận QR</h3>
             </div>
           </div>
           <button
@@ -116,10 +131,10 @@ export const KeypadModal: React.FC = () => {
           </button>
         </div>
 
-        {/* BƯỚC 1: NHẬP TỔNG TIỀN HÓA ĐƠN */}
-        <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200/70 space-y-1.5 text-center">
+        {/* BƯỚC 1: NHẬP TỔNG TIỀN */}
+        <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200/70 space-y-1 text-center">
           <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">
-            Tổng tiền cả nhóm cần thanh toán
+            Tổng tiền hóa đơn
           </label>
           <div className="relative inline-block w-full">
             <input
@@ -134,7 +149,7 @@ export const KeypadModal: React.FC = () => {
           </div>
         </div>
 
-        {/* BƯỚC 2: CHỌN SỐ LƯỢNG NGƯỜI CHIA */}
+        {/* BƯỚC 2: CHỌN SỐ LƯỢNG NGƯỜI */}
         <div className="bg-neutral-50 rounded-2xl p-3.5 border border-neutral-200/70 flex items-center justify-between">
           <div>
             <span className="text-xs font-black text-[#18181B] block">Số người chia</span>
@@ -170,7 +185,6 @@ export const KeypadModal: React.FC = () => {
           </div>
         </div>
 
-        {/* GHI CHÚ BỮA ĂN */}
         <div>
           <input
             type="text"
@@ -181,7 +195,7 @@ export const KeypadModal: React.FC = () => {
           />
         </div>
 
-        {/* THẺ KẾT QUẢ ĐÃ SỬA LỖI PADDING VÀ VIỀN */}
+        {/* THẺ KẾT QUẢ */}
         <div className="bg-gradient-to-br from-[#18181B] to-[#27272A] text-white rounded-3xl p-5 space-y-2 shadow-lg overflow-hidden">
           <div className="flex justify-between items-center text-neutral-300 text-xs font-bold pb-1">
             <span>Mỗi người cần chuyển:</span>
@@ -194,13 +208,81 @@ export const KeypadModal: React.FC = () => {
             <h2 className="text-3xl font-black font-mono text-amber-400 tracking-tight">
               {perPerson.toLocaleString('vi-VN')}đ
             </h2>
-            <span className="text-[10px] text-neutral-400 font-semibold block mt-1">
-              (Đã làm tròn số nghìn tiện chuyển khoản)
-            </span>
           </div>
         </div>
 
-        {/* BỘ NÚT HÀNH ĐỘNG */}
+        {/* NÚT MỞ MÃ VIETQR ĐỘNG CHO BẠN BÈ QUÉT */}
+        {perPerson > 0 && (
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setShowQrCode(!showQrCode)}
+              className="w-full py-3 rounded-2xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-black flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer"
+            >
+              <QrCode size={16} />
+              <span>{showQrCode ? 'Ẩn mã QR nhận tiền' : 'Hiện mã VietQR nhận tiền ngay'}</span>
+            </button>
+
+            {showQrCode && (
+              <div className="bg-neutral-50 rounded-3xl p-4 border border-neutral-200 text-center space-y-3 animate-tab-switch">
+                <div className="w-52 h-52 mx-auto bg-white p-2 rounded-2xl shadow-md border border-neutral-200 flex items-center justify-center">
+                  <img src={qrUrl} alt="VietQR" className="w-full h-full object-contain" />
+                </div>
+                <p className="text-[11px] font-bold text-neutral-600">
+                  Bạn bè chỉ cần mở camera hoặc app ngân hàng quét mã này là tiền tự điền đúng {perPerson.toLocaleString('vi-VN')}đ.
+                </p>
+
+                {/* SỬA THÔNG TIN TÀI KHOẢN NHẬN TIỀN */}
+                <div className="text-left pt-2 border-t border-neutral-200">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingBank(!isEditingBank)}
+                    className="text-[10px] font-black uppercase tracking-wider text-amber-600 flex items-center gap-1"
+                  >
+                    <CreditCard size={11} /> Cài đặt số tài khoản nhận tiền
+                  </button>
+
+                  {isEditingBank && (
+                    <div className="space-y-2 pt-2 animate-tab-switch">
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          placeholder="Mã Bank (MB, VCB, TCB...)"
+                          value={bankId}
+                          onChange={(e) => setBankId(e.target.value.toUpperCase())}
+                          className="bg-white border rounded-xl px-2 py-1.5 text-xs font-bold"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Số tài khoản"
+                          value={accountNo}
+                          onChange={(e) => setAccountNo(e.target.value)}
+                          className="bg-white border rounded-xl px-2 py-1.5 text-xs font-bold font-mono"
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Tên chủ thẻ (không dấu)"
+                        value={accountName}
+                        onChange={(e) => setAccountName(e.target.value.toUpperCase())}
+                        className="w-full bg-white border rounded-xl px-2 py-1.5 text-xs font-bold"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveBankInfo}
+                        className="w-full py-1.5 bg-[#18181B] text-white rounded-xl text-xs font-bold"
+                      >
+                        Lưu thông tin nhận tiền
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 2 HÀNH ĐỘNG */}
         <div className="space-y-2 pt-1">
           <button
             type="button"
