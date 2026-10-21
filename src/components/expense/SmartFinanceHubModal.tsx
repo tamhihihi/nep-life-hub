@@ -6,7 +6,12 @@ import {
   PiggyBank, 
   CalendarClock, 
   Plus, 
-  Check
+  Check, 
+  ArrowRightLeft, 
+  HeartHandshake, 
+  Trophy,
+  Copy,
+  Radio
 } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { sounds } from '../../utils/soundEngine';
@@ -17,14 +22,15 @@ interface SmartFinanceHubModalProps {
 }
 
 export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOpen, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'wallets' | 'debts' | 'savings' | 'subscriptions'>('wallets');
+  const [activeTab, setActiveTab] = useState<'wallets' | 'transfer' | 'shared' | 'debts' | 'challenges'>('wallets');
 
-  const [wallets] = useState<any[]>(() => {
+  // 1. ĐA VÍ
+  const [wallets, setWallets] = useState<any[]>(() => {
     try {
       const s = localStorage.getItem('nep_multi_wallets');
       return s ? JSON.parse(s) : [
         { id: 'w1', name: 'Tiền mặt', balance: 500000, type: 'cash' },
-        { id: 'w2', name: 'Tài khoản MB Bank', balance: 4200000, type: 'bank' },
+        { id: 'w2', name: 'Tài khoản Ngân hàng', balance: 4200000, type: 'bank' },
         { id: 'w3', name: 'Ví MoMo', balance: 350000, type: 'ewallet' },
       ];
     } catch {
@@ -32,108 +38,62 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
     }
   });
 
+  // 2. CHUYỂN TIỀN NỘI BỘ
+  const [fromWalletId, setFromWalletId] = useState('w2');
+  const [toWalletId, setToWalletId] = useState('w1');
+  const [transferAmount, setTransferAmount] = useState('');
+
+  // 3. VÍ CHUNG CẶP ĐÔI REALTIME
+  const [coupleCode, setCoupleCode] = useState(() => localStorage.getItem('nep_couple_wallet_code') || '');
+  const [coupleInput, setCoupleInput] = useState('');
+  const [sharedBalance, setSharedBalance] = useState(2400000);
+
+  // 4. SỔ NỢ
   const [debts, setDebts] = useState<any[]>(() => {
     try {
       const s = localStorage.getItem('nep_debt_tracker');
       return s ? JSON.parse(s) : [
         { id: 'd1', name: 'Tuấn Cạ Cứng', amount: 85000, type: 'they_owe_me', note: 'Tiền cà phê hôm qua' },
-        { id: 'd2', name: 'Quán cơm bà Năm', amount: 40000, type: 'i_owe_them', note: 'Nợ tiền ăn trưa' },
       ];
     } catch {
       return [];
     }
   });
 
-  const [savings, setSavings] = useState<any[]>(() => {
-    try {
-      const s = localStorage.getItem('nep_savings_goals');
-      return s ? JSON.parse(s) : [
-        { id: 's1', title: 'Đi du lịch Đà Lạt', target: 3000000, current: 1200000, icon: '✈️' },
-        { id: 's2', title: 'Quỹ dự phòng khẩn cấp', target: 5000000, current: 2500000, icon: '🛡️' },
-      ];
-    } catch {
-      return [];
-    }
-  });
-
-  const [subscriptions, setSubscriptions] = useState<any[]>(() => {
-    try {
-      const s = localStorage.getItem('nep_recurring_bills');
-      return s ? JSON.parse(s) : [
-        { id: 'r1', name: 'Tiền phòng trọ', cost: 2500000, dueDay: 5 },
-        { id: 'r2', name: 'Gói Netflix', cost: 70000, dueDay: 15 },
-        { id: 'r3', name: 'Spotify Premium', cost: 59000, dueDay: 20 },
-      ];
-    } catch {
-      return [];
-    }
-  });
-
-  const [isAddingItem, setIsAddingItem] = useState(false);
-  const [formName, setFormName] = useState('');
-  const [formAmount, setFormAmount] = useState('');
-  const [formType, setFormType] = useState('they_owe_me');
+  // 5. THỬ THÁCH TÀI CHÍNH GAMIFICATION
+  const [challenges, setChallenges] = useState<any[]>([
+    { id: 'c1', title: '7 Ngày Không Trà Sữa', targetDays: 7, currentDays: 4, icon: '🧋', reward: 'Huy hiệu Cai Ngọt' },
+    { id: 'c2', title: 'Nấu Ăn Tại Nhà 5 Bữa', targetDays: 5, currentDays: 3, icon: '🍳', reward: 'Vua Đầu Bếp' },
+    { id: 'c3', title: 'Không Chi Sau 22h Đêm', targetDays: 7, currentDays: 6, icon: '🌙', reward: 'Người Nề Nếp' },
+  ]);
 
   if (!isOpen) return null;
 
-  const handleResolveDebt = (debtId: string) => {
+  // XỬ LÝ CHUYỂN TIỀN NỘI BỘ
+  const handleExecuteTransfer = () => {
+    const numeric = parseInt(transferAmount.replace(/\D/g, ''), 10) || 0;
+    if (numeric <= 0 || fromWalletId === toWalletId) return;
+
     try { sounds?.playChime?.(); } catch {}
-    const target = debts.find((d) => d.id === debtId);
-    if (!target) return;
+    const nextWallets = wallets.map((w) => {
+      if (w.id === fromWalletId) return { ...w, balance: Math.max(0, w.balance - numeric) };
+      if (w.id === toWalletId) return { ...w, balance: w.balance + numeric };
+      return w;
+    });
 
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    
-    useAppStore.setState((prev: any) => ({
-      transactions: [
-        {
-          id: `tx_${Date.now()}`,
-          amount: target.amount,
-          type: target.type === 'they_owe_me' ? 'income' : 'expense',
-          category: 'Sổ nợ',
-          bankName: 'Tiền mặt',
-          note: target.type === 'they_owe_me' ? `Đã thu nợ từ: ${target.name}` : `Đã trả nợ cho: ${target.name}`,
-          dateStr: todayStr,
-          timestamp: Date.now(),
-        },
-        ...(prev?.transactions || []),
-      ],
-    }));
-
-    const next = debts.filter((d) => d.id !== debtId);
-    setDebts(next);
-    localStorage.setItem('nep_debt_tracker', JSON.stringify(next));
+    setWallets(nextWallets);
+    localStorage.setItem('nep_multi_wallets', JSON.stringify(nextWallets));
+    setTransferAmount('');
+    setActiveTab('wallets');
   };
 
-  const handleDepositSaving = (id: string, amount: number) => {
+  // GHÉP ĐÔI VÍ CHUNG
+  const handleConnectCouple = () => {
+    const code = coupleInput.trim().toUpperCase();
+    if (!code) return;
+    setCoupleCode(code);
+    localStorage.setItem('nep_couple_wallet_code', code);
     try { sounds?.playChime?.(); } catch {}
-    const next = savings.map((s) => (s.id === id ? { ...s, current: Math.min(s.target, s.current + amount) } : s));
-    setSavings(next);
-    localStorage.setItem('nep_savings_goals', JSON.stringify(next));
-  };
-
-  const handleAddNew = (e: React.FormEvent) => {
-    e.preventDefault();
-    const numeric = parseInt(formAmount.replace(/\D/g, ''), 10) || 0;
-    if (!formName.trim() || numeric <= 0) return;
-
-    if (activeTab === 'debts') {
-      const next = [{ id: `d_${Date.now()}`, name: formName.trim(), amount: numeric, type: formType, note: 'Ghi chú nợ' }, ...debts];
-      setDebts(next);
-      localStorage.setItem('nep_debt_tracker', JSON.stringify(next));
-    } else if (activeTab === 'savings') {
-      const next = [{ id: `s_${Date.now()}`, title: formName.trim(), target: numeric, current: 0, icon: '🎯' }, ...savings];
-      setSavings(next);
-      localStorage.setItem('nep_savings_goals', JSON.stringify(next));
-    } else if (activeTab === 'subscriptions') {
-      const next = [{ id: `r_${Date.now()}`, name: formName.trim(), cost: numeric, dueDay: 10 }, ...subscriptions];
-      setSubscriptions(next);
-      localStorage.setItem('nep_recurring_bills', JSON.stringify(next));
-    }
-
-    setFormName('');
-    setFormAmount('');
-    setIsAddingItem(false);
   };
 
   return (
@@ -144,8 +104,8 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
 
         <div className="flex justify-between items-center">
           <div>
-            <span className="text-[10px] font-black uppercase text-amber-600 block">Bộ công cụ tài chính</span>
-            <h3 className="text-base font-black text-[#18181B]">Ví Thông Minh</h3>
+            <span className="text-[10px] font-black uppercase text-amber-600 block">Ví Thông Minh</span>
+            <h3 className="text-base font-black text-[#18181B]">Hệ Sinh Thái Tài Chính</h3>
           </div>
           <button
             type="button"
@@ -156,40 +116,42 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
           </button>
         </div>
 
-        <div className="grid grid-cols-4 gap-1 bg-neutral-100 p-1 rounded-2xl">
+        {/* 5 TAB ĐIỀU HƯỚNG */}
+        <div className="grid grid-cols-5 gap-1 bg-neutral-100 p-1 rounded-2xl text-[9px] font-black">
           {[
             { id: 'wallets', label: 'Đa Ví', icon: Wallet },
+            { id: 'transfer', label: 'Chuyển', icon: ArrowRightLeft },
+            { id: 'shared', label: 'Ví Đôi', icon: HeartHandshake },
             { id: 'debts', label: 'Sổ Nợ', icon: HandCoins },
-            { id: 'savings', label: 'Tiết Kiệm', icon: PiggyBank },
-            { id: 'subscriptions', label: 'Định Kỳ', icon: CalendarClock },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isSelected = activeTab === tab.id;
+            { id: 'challenges', label: 'Thử Thách', icon: Trophy },
+          ].map((t) => {
+            const Icon = t.icon;
+            const isSelected = activeTab === t.id;
             return (
               <button
-                key={tab.id}
+                key={t.id}
                 type="button"
                 onClick={() => {
                   try { sounds?.playKeypadTap?.(); } catch {}
-                  setActiveTab(tab.id as any);
-                  setIsAddingItem(false);
+                  setActiveTab(t.id as any);
                 }}
-                className={`py-2 flex flex-col items-center gap-1 rounded-xl text-[10px] font-black transition cursor-pointer ${
-                  isSelected ? 'bg-white text-[#18181B] shadow-xs' : 'text-neutral-500 hover:text-black'
+                className={`py-2 flex flex-col items-center gap-1 rounded-xl transition cursor-pointer ${
+                  isSelected ? 'bg-white text-[#18181B] shadow-xs' : 'text-neutral-500'
                 }`}
               >
-                <Icon size={14} className={isSelected ? 'text-amber-500' : 'text-neutral-400'} />
-                <span>{tab.label}</span>
+                <Icon size={13} className={isSelected ? 'text-amber-500' : 'text-neutral-400'} />
+                <span>{t.label}</span>
               </button>
             );
           })}
         </div>
 
+        {/* TAB 1: ĐA VÍ */}
         {activeTab === 'wallets' && (
           <div className="space-y-3 animate-tab-switch">
             <div className="flex justify-between items-center px-1">
-              <span className="text-xs font-black text-neutral-700">Các nguồn tiền của bạn</span>
-              <span className="text-[10px] text-neutral-400 font-bold">
+              <span className="text-xs font-black text-neutral-700">Tài sản theo từng nguồn</span>
+              <span className="text-[10px] font-mono font-bold text-neutral-400">
                 Tổng: {wallets.reduce((s, w) => s + w.balance, 0).toLocaleString('vi-VN')}đ
               </span>
             </div>
@@ -215,175 +177,163 @@ export const SmartFinanceHubModal: React.FC<SmartFinanceHubModalProps> = ({ isOp
           </div>
         )}
 
-        {activeTab === 'debts' && (
+        {/* TAB 2: CHUYỂN TIỀN NỘI BỘ (INTERNAL TRANSFER) */}
+        {activeTab === 'transfer' && (
           <div className="space-y-3 animate-tab-switch">
-            <div className="flex justify-between items-center px-1">
-              <span className="text-xs font-black text-neutral-700">Sổ theo dõi nợ 2 chiều</span>
+            <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200/80 space-y-3">
+              <div>
+                <label className="text-[10px] font-black uppercase text-neutral-400 block mb-1">Từ ví nguồn</label>
+                <select
+                  value={fromWalletId}
+                  onChange={(e) => setFromWalletId(e.target.value)}
+                  className="w-full bg-white border rounded-xl px-3 py-2 text-xs font-black"
+                >
+                  {wallets.map((w) => (
+                    <option key={w.id} value={w.id}>{w.name} ({w.balance.toLocaleString('vi-VN')}đ)</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-neutral-400 block mb-1">Đến ví đích</label>
+                <select
+                  value={toWalletId}
+                  onChange={(e) => setToWalletId(e.target.value)}
+                  className="w-full bg-white border rounded-xl px-3 py-2 text-xs font-black"
+                >
+                  {wallets.map((w) => (
+                    <option key={w.id} value={w.id}>{w.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-neutral-400 block mb-1">Số tiền chuyển</label>
+                <input
+                  type="number"
+                  placeholder="0đ"
+                  value={transferAmount}
+                  onChange={(e) => setTransferAmount(e.target.value)}
+                  className="w-full bg-white border rounded-xl px-3 py-2 text-sm font-black font-mono focus:outline-none"
+                />
+              </div>
+
               <button
                 type="button"
-                onClick={() => setIsAddingItem(!isAddingItem)}
-                className="text-xs font-black text-amber-600 flex items-center gap-0.5"
+                onClick={handleExecuteTransfer}
+                className="w-full py-3 bg-[#18181B] text-white text-xs font-black rounded-xl active:scale-95 transition cursor-pointer"
               >
-                <Plus size={13} /> Thêm nợ
+                Xác nhận chuyển ví
               </button>
             </div>
-
-            <div className="space-y-2">
-              {debts.length === 0 ? (
-                <p className="text-xs text-neutral-400 text-center py-6">Không có khoản nợ nào cần thu/trả</p>
-              ) : (
-                debts.map((d) => (
-                  <div key={d.id} className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200/70 flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
-                          d.type === 'they_owe_me' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                        }`}>
-                          {d.type === 'they_owe_me' ? 'Cần thu' : 'Cần trả'}
-                        </span>
-                        <h4 className="text-xs font-black text-[#18181B]">{d.name}</h4>
-                      </div>
-                      <p className="text-[10px] text-neutral-400 font-semibold mt-0.5">{d.note}</p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black font-mono text-[#18181B]">
-                        {d.amount.toLocaleString('vi-VN')}đ
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleResolveDebt(d.id)}
-                        className="px-2 py-1 bg-[#18181B] text-white text-[10px] font-bold rounded-lg active:scale-95 transition"
-                        title="Đã thanh toán"
-                      >
-                        <Check size={11} />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            <p className="text-[10px] text-neutral-400 text-center font-medium">
+              Chuyển tiền qua lại giữa các ví không làm thay đổi tổng ngân sách chi tiêu của bạn.
+            </p>
           </div>
         )}
 
-        {activeTab === 'savings' && (
+        {/* TAB 3: VÍ CHUNG CẶP ĐÔI (COUPLE WALLET) */}
+        {activeTab === 'shared' && (
           <div className="space-y-3 animate-tab-switch">
-            <div className="flex justify-between items-center px-1">
-              <span className="text-xs font-black text-neutral-700">Mục tiêu tích lũy</span>
-              <button
-                type="button"
-                onClick={() => setIsAddingItem(!isAddingItem)}
-                className="text-xs font-black text-amber-600 flex items-center gap-0.5"
-              >
-                <Plus size={13} /> Thêm mục tiêu
-              </button>
+            <div className="bg-gradient-to-br from-rose-500 to-pink-600 text-white rounded-3xl p-5 space-y-2 shadow-md">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold flex items-center gap-1">
+                  <HeartHandshake size={14} /> Quỹ chung hai đứa
+                </span>
+                <span className="font-mono bg-white/20 px-2 py-0.5 rounded-full text-[10px]">
+                  {coupleCode ? `Mã: ${coupleCode}` : 'Chưa kết đôi'}
+                </span>
+              </div>
+              <h2 className="text-3xl font-black font-mono text-white pt-1">
+                {sharedBalance.toLocaleString('vi-VN')}đ
+              </h2>
+              <p className="text-[10px] text-rose-100">Cả 2 người đều có thể ghi chi tiêu trực tiếp vào quỹ này.</p>
             </div>
 
-            <div className="space-y-2.5">
-              {savings.map((s) => {
-                const percent = Math.min(100, Math.round((s.current / s.target) * 100));
-                return (
-                  <div key={s.id} className="p-3.5 bg-neutral-50 rounded-2xl border border-neutral-200/70 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">{s.icon}</span>
-                        <div>
-                          <h4 className="text-xs font-black text-[#18181B]">{s.title}</h4>
-                          <span className="text-[10px] text-neutral-400 font-bold font-mono">
-                            {s.current.toLocaleString('vi-VN')}đ / {s.target.toLocaleString('vi-VN')}đ
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDepositSaving(s.id, 50000)}
-                        className="px-2.5 py-1 bg-amber-400 hover:bg-amber-300 text-black text-[10px] font-black rounded-lg active:scale-95 transition cursor-pointer"
-                      >
-                        + Bỏ 50k
-                      </button>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-neutral-200 overflow-hidden">
-                      <div className="h-full bg-amber-500 rounded-full transition-all duration-300" style={{ width: `${percent}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'subscriptions' && (
-          <div className="space-y-3 animate-tab-switch">
-            <div className="flex justify-between items-center px-1">
-              <span className="text-xs font-black text-neutral-700">Chi phí cố định hàng tháng</span>
-              <button
-                type="button"
-                onClick={() => setIsAddingItem(!isAddingItem)}
-                className="text-xs font-black text-amber-600 flex items-center gap-0.5"
-              >
-                <Plus size={13} /> Thêm khoản
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              {subscriptions.map((r) => (
-                <div key={r.id} className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200/70 flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-black text-[#18181B]">{r.name}</h4>
-                    <span className="text-[10px] text-neutral-400 font-semibold">Đến hạn ngày {r.dueDay} hàng tháng</span>
-                  </div>
-                  <span className="text-xs font-black font-mono text-rose-600">
-                    -{r.cost.toLocaleString('vi-VN')}đ
-                  </span>
+            {!coupleCode ? (
+              <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200/80 space-y-2">
+                <span className="text-xs font-black text-[#18181B] block">Nhập mã ghép đôi với người thương:</span>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="VD: LOVE88"
+                    value={coupleInput}
+                    onChange={(e) => setCoupleInput(e.target.value.toUpperCase())}
+                    className="flex-1 bg-white border rounded-xl px-3 py-2 text-xs font-black uppercase"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleConnectCouple}
+                    className="px-4 bg-rose-500 text-white text-xs font-black rounded-xl"
+                  >
+                    Ghép Đôi
+                  </button>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {isAddingItem && (
-          <form onSubmit={handleAddNew} className="p-3.5 bg-amber-50/70 border border-amber-300/80 rounded-2xl space-y-2 animate-tab-switch">
-            <input
-              type="text"
-              required
-              placeholder="Tên mục (VD: Netflix, Tiền trọ, Bạn Nam...)"
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              className="w-full bg-white rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none"
-            />
-            <input
-              type="number"
-              required
-              placeholder="Số tiền (VNĐ)"
-              value={formAmount}
-              onChange={(e) => setFormAmount(e.target.value)}
-              className="w-full bg-white rounded-xl px-3 py-1.5 text-xs font-bold font-mono focus:outline-none"
-            />
-            {activeTab === 'debts' && (
-              <div className="flex gap-2">
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setFormType('they_owe_me')}
-                  className={`flex-1 py-1 rounded-lg text-[10px] font-bold ${formType === 'they_owe_me' ? 'bg-emerald-600 text-white' : 'bg-white'}`}
+                  onClick={() => setSharedBalance((prev) => prev + 200000)}
+                  className="py-2.5 bg-neutral-100 rounded-xl text-xs font-black text-neutral-800"
                 >
-                  Người ta nợ tôi
+                  + Góp 200k
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFormType('i_owe_them')}
-                  className={`flex-1 py-1 rounded-lg text-[10px] font-bold ${formType === 'i_owe_them' ? 'bg-rose-600 text-white' : 'bg-white'}`}
+                  onClick={() => setSharedBalance((prev) => Math.max(0, prev - 100000))}
+                  className="py-2.5 bg-neutral-100 rounded-xl text-xs font-black text-rose-600"
                 >
-                  Tôi nợ người ta
+                  - Chi ăn tối 100k
                 </button>
               </div>
             )}
-            <button
-              type="submit"
-              className="w-full py-2 bg-[#18181B] text-white text-xs font-black rounded-xl cursor-pointer"
-            >
-              Lưu vào danh sách
-            </button>
-          </form>
+          </div>
+        )}
+
+        {/* TAB 4: SỔ NỢ */}
+        {activeTab === 'debts' && (
+          <div className="space-y-2 animate-tab-switch">
+            {debts.map((d) => (
+              <div key={d.id} className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200/70 flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-black text-[#18181B]">{d.name}</h4>
+                  <p className="text-[10px] text-neutral-400 font-semibold">{d.note}</p>
+                </div>
+                <span className="text-xs font-black font-mono text-[#18181B]">
+                  {d.amount.toLocaleString('vi-VN')}đ
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* TAB 5: THỬ THÁCH TÀI CHÍNH GAMIFICATION */}
+        {activeTab === 'challenges' && (
+          <div className="space-y-2.5 animate-tab-switch">
+            {challenges.map((c) => {
+              const percent = Math.min(100, Math.round((c.currentDays / c.targetDays) * 100));
+              return (
+                <div key={c.id} className="p-3.5 bg-neutral-50 rounded-2xl border border-neutral-200/70 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{c.icon}</span>
+                      <div>
+                        <h4 className="text-xs font-black text-[#18181B]">{c.title}</h4>
+                        <span className="text-[10px] text-amber-700 font-bold">Thưởng: {c.reward}</span>
+                      </div>
+                    </div>
+                    <span className="text-xs font-black font-mono text-neutral-700">
+                      {c.currentDays}/{c.targetDays} ngày
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-neutral-200 overflow-hidden">
+                    <div className="h-full bg-amber-500 rounded-full transition-all duration-300" style={{ width: `${percent}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
 
       </div>

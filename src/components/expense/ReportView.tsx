@@ -1,186 +1,182 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  AlertTriangle, 
+  PieChart as PieIcon, 
+  Sparkles, 
+  Calendar, 
+  ShieldCheck,
+  ChevronRight
+} from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 
 export const ReportView: React.FC = () => {
-  const { transactions } = useAppStore();
-  const [period, setPeriod] = useState<'week' | 'month'>('month');
+  const store = useAppStore();
+  const transactions = (store as any)?.transactions || [];
+  const monthlyLimit = Number((store as any)?.monthlyLimit) || 5000000;
+  const salaryStartDay = Number(localStorage.getItem('nep_salary_start_day')) || 1;
 
-  // Lọc giao dịch theo Tuần hiện tại hoặc Tháng hiện tại
-  const filteredTransactions = useMemo(() => {
-    const now = new Date();
-    const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const now = new Date();
+  const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    if (period === 'month') {
-      return transactions.filter((t) => t.dateStr.startsWith(currentMonthPrefix));
-    }
+  const currentMonthTxs = useMemo(() => {
+    return transactions.filter((t: any) => t?.dateStr && String(t.dateStr).startsWith(currentYearMonth));
+  }, [transactions, currentYearMonth]);
 
-    // Tính ngày đầu tuần (Thứ 2)
-    const day = now.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() + diff);
-    monday.setHours(0, 0, 0, 0);
+  const totalExpense = currentMonthTxs
+    .filter((t: any) => t.type === 'expense')
+    .reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
 
-    return transactions.filter((t) => {
-      const txDate = new Date(t.dateStr);
-      return txDate >= monday;
-    });
-  }, [transactions, period]);
+  const totalIncome = currentMonthTxs
+    .filter((t: any) => t.type === 'income')
+    .reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
 
-  const totalExpense = filteredTransactions
-    .filter((t) => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const totalIncome = filteredTransactions
-    .filter((t) => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  // Tính dữ liệu cột biểu đồ thực tế
-  const chartBars = useMemo(() => {
-    const expenses = filteredTransactions.filter((t) => t.type === 'expense');
-
-    if (period === 'week') {
-      const labels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-      const sums = [0, 0, 0, 0, 0, 0, 0];
-      expenses.forEach((t) => {
-        const d = new Date(t.dateStr).getDay();
-        const idx = d === 0 ? 6 : d - 1;
-        sums[idx] += t.amount;
+  // 1. THUẬT TOÁN PHÂN CHIA DANH MỤC CHI TIÊU & TÍNH GÓC VẼ BIỂU ĐỒ TRÒN SVG
+  const categoryStats = useMemo(() => {
+    const map: Record<string, number> = {};
+    currentMonthTxs
+      .filter((t: any) => t.type === 'expense')
+      .forEach((t: any) => {
+        const cat = t.category || 'Khác';
+        map[cat] = (map[cat] || 0) + Number(t.amount);
       });
-      const maxVal = Math.max(...sums, 1);
-      const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
 
-      return labels.map((label, i) => ({
-        label,
-        amount: sums[i],
-        height: `${Math.max(8, Math.round((sums[i] / maxVal) * 100))}%`,
-        val: sums[i] >= 1000000 ? `${(sums[i] / 1000000).toFixed(1)}M` : sums[i] > 0 ? `${Math.round(sums[i] / 1000)}K` : '0',
-        active: i === todayIdx,
-      }));
-    } else {
-      const labels = ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'];
-      const sums = [0, 0, 0, 0];
-      expenses.forEach((t) => {
-        const dayOfMonth = parseInt(t.dateStr.split('-')[2] || '1', 10);
-        const weekIdx = Math.min(3, Math.floor((dayOfMonth - 1) / 7));
-        sums[weekIdx] += t.amount;
-      });
-      const maxVal = Math.max(...sums, 1);
-      const currentWeekIdx = Math.min(3, Math.floor((new Date().getDate() - 1) / 7));
+    const colors = ['#F59E0B', '#10B981', '#6366F1', '#EC4899', '#8B5CF6', '#64748B'];
+    let accAngle = 0;
 
-      return labels.map((label, i) => ({
-        label,
-        amount: sums[i],
-        height: `${Math.max(10, Math.round((sums[i] / maxVal) * 100))}%`,
-        val: sums[i] >= 1000000 ? `${(sums[i] / 1000000).toFixed(1)}M` : sums[i] > 0 ? `${Math.round(sums[i] / 1000)}K` : '0',
-        active: i === currentWeekIdx,
-      }));
-    }
-  }, [filteredTransactions, period]);
+    return Object.entries(map).map(([name, amount], index) => {
+      const percent = totalExpense > 0 ? (amount / totalExpense) * 100 : 0;
+      const angle = (percent / 100) * 360;
+      const startAngle = accAngle;
+      accAngle += angle;
 
-  const catMap: Record<string, number> = {};
-  filteredTransactions
-    .filter((t) => t.type === 'expense')
-    .forEach((t) => {
-      catMap[t.category] = (catMap[t.category] || 0) + t.amount;
+      return {
+        name,
+        amount,
+        percent: Math.round(percent),
+        color: colors[index % colors.length],
+        startAngle,
+        angle,
+      };
     });
+  }, [currentMonthTxs, totalExpense]);
 
-  const catList = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+  // 2. THUẬT TOÁN DỰ BÁO CHI TIÊU (SPENDING FORECAST)
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysPassed = Math.max(1, now.getDate());
+  const daysLeft = Math.max(1, daysInMonth - daysPassed);
+  
+  const dailyBurnRate = Math.round(totalExpense / daysPassed);
+  const remainingBudget = Math.max(0, monthlyLimit + totalIncome - totalExpense);
+  const daysUntilExhaustion = dailyBurnRate > 0 ? Math.floor(remainingBudget / dailyBurnRate) : 99;
+
+  // 3. ĐIỂM SỨC KHỎE TÀI CHÍNH (0 - 100 ĐIỂM)
+  const healthScore = Math.max(10, Math.min(100, Math.round(100 - (totalExpense / (monthlyLimit || 1)) * 70)));
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-black text-[#18181B]">Báo cáo</h2>
-          <p className="text-xs text-neutral-400 font-medium">Biết tiền đi đâu · Thống kê thực tế</p>
+    <div className="space-y-4 animate-tab-switch pb-24">
+      
+      {/* THẺ ĐIỂM SỨC KHỎE TÀI CHÍNH */}
+      <div className="bg-gradient-to-br from-[#18181B] to-[#27272A] text-white rounded-[32px] p-5 shadow-lg space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1">
+            <ShieldCheck size={13} /> Sức khỏe tài chính tháng
+          </span>
+          <span className="text-xs font-mono font-bold text-neutral-400">Chu kỳ từ ngày {salaryStartDay}</span>
         </div>
-        <div className="bg-neutral-200/80 p-0.5 rounded-xl flex text-xs font-bold">
-          <button
-            type="button"
-            onClick={() => setPeriod('week')}
-            className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-              period === 'week' ? 'bg-white text-black shadow-sm' : 'text-neutral-500'
-            }`}
-          >
-            Tuần này
-          </button>
-          <button
-            type="button"
-            onClick={() => setPeriod('month')}
-            className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-              period === 'month' ? 'bg-white text-black shadow-sm' : 'text-neutral-500'
-            }`}
-          >
-            Tháng này
-          </button>
+
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-4xl font-black font-mono text-white">{healthScore}</h2>
+          <span className="text-sm font-bold text-neutral-400">/ 100 điểm</span>
+        </div>
+
+        <p className="text-xs text-neutral-300 font-medium">
+          {healthScore >= 80 
+            ? '🌿 Bạn đang kiểm soát chi tiêu rất xuất sắc!' 
+            : healthScore >= 50 
+            ? '⚠️ Chi tiêu đang ở mức trung bình, hãy chú ý các bữa ăn ngoài.' 
+            : '🚨 Báo động: Tốc độ tiêu tiền đang vượt quá hạn mức an toàn!'}
+        </p>
+      </div>
+
+      {/* THẺ CẢNH BÁO DỰ BÁO CẠN QUỸ */}
+      <div className="bg-amber-500/10 border border-amber-300/70 rounded-3xl p-4 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-2xl bg-amber-400 text-black flex items-center justify-center shrink-0 font-bold">
+          <AlertTriangle size={20} />
+        </div>
+        <div className="min-w-0">
+          <h4 className="text-xs font-black text-amber-950">Dự báo chi tiêu thông minh</h4>
+          <p className="text-[11px] text-amber-900 font-medium mt-0.5">
+            Với mức tiêu trung bình <b className="font-mono">{dailyBurnRate.toLocaleString('vi-VN')}đ/ngày</b>, 
+            {daysUntilExhaustion < daysLeft 
+              ? ` ví của bạn có nguy cơ cạn quỹ sau ${daysUntilExhaustion} ngày nữa!` 
+              : ` bạn hoàn toàn đủ tiền duy trì đến hết tháng.`}
+          </p>
         </div>
       </div>
 
-      <div className="bg-white rounded-[28px] p-5 shadow-sm border border-neutral-100">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-xs text-neutral-400 font-medium">
-              Tổng chi · {period === 'week' ? 'Tuần này' : 'Tháng này'}
-            </p>
-            <div className="text-3xl font-black text-[#18181B] mt-1 mb-4">
-              {totalExpense.toLocaleString()}
-              <span className="text-xl font-bold ml-0.5">đ</span>
-            </div>
-          </div>
-
-          {totalIncome > 0 && (
-            <div className="text-right">
-              <p className="text-[11px] text-neutral-400 font-medium">Tổng thu</p>
-              <p className="text-sm font-black text-emerald-600 mt-0.5">
-                +{totalIncome.toLocaleString()}đ
-              </p>
-            </div>
-          )}
+      {/* BIỂU ĐỒ TRÒN DONUT CHART BẰNG SVG SIÊU NHẸ */}
+      <div className="bg-white rounded-[32px] p-5 border border-neutral-200/90 shadow-sm space-y-4">
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-black text-[#18181B] flex items-center gap-1.5">
+            <PieIcon size={14} className="text-amber-500" /> Cơ cấu chi tiêu tháng
+          </span>
+          <span className="text-[10px] font-mono font-bold text-neutral-400">
+            Tổng: {totalExpense.toLocaleString('vi-VN')}đ
+          </span>
         </div>
 
-        <div className="h-32 flex items-end justify-between gap-2 pt-5 pb-1 border-b border-neutral-100 px-1">
-          {chartBars.map((bar, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-              <span className="text-[9px] text-neutral-400 font-bold">{bar.val}</span>
-              <div
-                className={`w-full max-w-[26px] rounded-t-lg transition-all duration-500 ${
-                  bar.active ? 'bg-[#18181B]' : 'bg-neutral-200'
-                }`}
-                style={{ height: bar.height }}
-              />
-              <span className="text-[10px] text-neutral-500 font-semibold">{bar.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-white rounded-[28px] p-5 shadow-sm border border-neutral-100">
-        <h3 className="text-xs font-black uppercase text-neutral-400 tracking-wider mb-3">
-          Tỷ trọng danh mục
-        </h3>
-        {catList.length === 0 ? (
-          <p className="text-xs text-neutral-400 text-center py-6">Chưa có khoản chi nào trong kỳ này</p>
+        {totalExpense === 0 ? (
+          <p className="text-xs text-neutral-400 text-center py-8">Chưa có giao dịch chi tiêu trong tháng</p>
         ) : (
-          <div className="space-y-3">
-            {catList.map(([cat, amount]) => {
-              const pct = Math.round((amount / (totalExpense || 1)) * 100);
-              return (
-                <div key={cat}>
-                  <div className="flex justify-between text-xs font-bold text-neutral-800 mb-1">
-                    <span>{cat}</span>
-                    <span>
-                      {amount.toLocaleString()}đ ({pct}%)
-                    </span>
+          <div className="flex items-center justify-around gap-4 pt-2">
+            {/* SVG DONUT CHART */}
+            <div className="relative w-36 h-36 shrink-0 flex items-center justify-center">
+              <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
+                {categoryStats.map((cat, i) => {
+                  const strokeDasharray = `${cat.percent} ${100 - cat.percent}`;
+                  const strokeDashoffset = -categoryStats.slice(0, i).reduce((s, c) => s + c.percent, 0);
+                  return (
+                    <circle
+                      key={cat.name}
+                      cx="18"
+                      cy="18"
+                      r="14"
+                      fill="transparent"
+                      stroke={cat.color}
+                      strokeWidth="5"
+                      strokeDasharray={strokeDasharray}
+                      strokeDashoffset={strokeDashoffset}
+                      className="transition-all duration-700"
+                    />
+                  );
+                })}
+              </svg>
+              <div className="absolute text-center">
+                <span className="text-[10px] font-bold text-neutral-400 block uppercase">Chi</span>
+                <span className="text-xs font-black font-mono text-[#18181B]">
+                  {(totalExpense / 1000).toFixed(0)}k
+                </span>
+              </div>
+            </div>
+
+            {/* DANH SÁCH DANH MỤC VÀ % */}
+            <div className="flex-1 space-y-1.5 min-w-0">
+              {categoryStats.map((cat) => (
+                <div key={cat.name} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                    <span className="font-bold text-[#18181B] truncate">{cat.name}</span>
                   </div>
-                  <div className="w-full bg-neutral-100 h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-[#18181B] h-full rounded-full" style={{ width: `${pct}%` }} />
-                  </div>
+                  <span className="font-black font-mono text-neutral-500 shrink-0">{cat.percent}%</span>
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
         )}
       </div>
+
     </div>
   );
 };

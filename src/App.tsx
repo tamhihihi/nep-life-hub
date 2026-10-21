@@ -20,7 +20,8 @@ import {
   ShieldCheck,
   Edit2,
   WalletCards,
-  Lock
+  Lock,
+  Receipt
 } from 'lucide-react';
 import { useAppStore } from './stores/useAppStore';
 import { ExpenseSummaryCard } from './components/expense/ExpenseSummaryCard';
@@ -33,6 +34,7 @@ import { SplashScreen } from './components/common/SplashScreen';
 import { SecurityLock } from './components/security/SecurityLock';
 import { SmartFinanceHubModal } from './components/expense/SmartFinanceHubModal';
 import { SplitBillModal } from './components/expense/SplitBillModal';
+import { ReceiptScannerModal } from './components/expense/ReceiptScannerModal';
 import { userDataSync } from './services/userDataSync';
 import { notifier } from './utils/notificationService';
 import { sounds } from './utils/soundEngine';
@@ -104,12 +106,19 @@ export default function App() {
   const toggleScheduleItem = (store as any)?.toggleScheduleItem;
   const setIsAddScheduleOpen = (store as any)?.setIsAddScheduleOpen;
 
-  // 1. ĐIỀU PHỐI 3 GIAI ĐOẠN KHỞI ĐỘNG: SPLASH -> AUTH -> MAIN
+  // 1. LUỒNG KHỞI ĐỘNG 3 BƯỚC: SPLASH (LOGO) -> AUTH (PIN/FACE ID) -> MAIN
   const [appPhase, setAppPhase] = useState<'splash' | 'auth' | 'main'>('splash');
 
+  // STATE ĐIỀU KHIỂN CÁC MODAL CHỨC NĂNG RIÊNG BIỆT
   const [isSmartHubOpen, setIsSmartHubOpen] = useState(false);
   const [isSplitBillOpen, setIsSplitBillOpen] = useState(false);
+  const [isReceiptScannerOpen, setIsReceiptScannerOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [editingPreset, setEditingPreset] = useState<PresetItem | null>(null);
+  const [undoToast, setUndoToast] = useState<{ id: string; text: string } | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
 
+  // PHIÊN NGƯỜI DÙNG GOOGLE
   const [currentUser, setCurrentUser] = useState<GoogleUser | null>(() => {
     try {
       const saved = localStorage.getItem('nep_user_session_v1');
@@ -134,14 +143,13 @@ export default function App() {
 
   const [hubSection, setHubSection] = useState<'wallet' | 'lokcam' | 'chill'>('wallet');
   const [spendMode, setSpendMode] = useState<'expense' | 'income'>('expense');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [undoToast, setUndoToast] = useState<{ id: string; text: string } | null>(null);
-  const toastTimeoutRef = useRef<number | null>(null);
 
+  // CÀI ĐẶT NGÀY NHẬN LƯƠNG
   const [salaryDay, setSalaryDay] = useState<number>(() => {
     return Number(localStorage.getItem('nep_salary_start_day')) || 1;
   });
 
+  // TÙY CHỈNH DẢI NÚT 1-TAP
   const [expensePresets, setExpensePresets] = useState<PresetItem[]>(() => {
     try {
       const saved = localStorage.getItem('nep_expense_presets');
@@ -150,8 +158,6 @@ export default function App() {
       return DEFAULT_EXPENSE_PRESETS;
     }
   });
-
-  const [editingPreset, setEditingPreset] = useState<PresetItem | null>(null);
 
   const [notiEnabled, setNotiEnabled] = useState(
     typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
@@ -167,6 +173,7 @@ export default function App() {
   const todayStr = now.toISOString().split('T')[0];
   const todaySchedules = scheduleItems.filter((i: any) => i?.dateStr === todayStr);
 
+  // QUÉT VÀ THÔNG BÁO LỊCH TRÌNH THỜI GIAN THỰC
   useEffect(() => {
     if (typeof updateLastActive === 'function') {
       notifier.checkInactivity(lastActiveTime);
@@ -223,7 +230,7 @@ export default function App() {
     const granted = await notifier.requestPermission();
     setNotiEnabled(granted);
     if (granted) {
-      notifier.send('✨ Đã bật thông báo Nếp', 'Nếp sẽ nhắc nhở hạn mức và lịch trình.', '✨');
+      notifier.send('✨ Đã bật thông báo Nếp', 'Nếp sẽ nhắc nhở hạn mức và ga lịch trình.', '✨');
     }
   };
 
@@ -316,17 +323,17 @@ export default function App() {
     return <img src={walletIcon} alt="Tiền" className="w-5 h-5 object-contain" />;
   };
 
-  // GIAI ĐOẠN 1: MÀN HÌNH CHÀO LOGO (SPLASH SCREEN)
+  // GIAI ĐOẠN 1: MÀN HÌNH CHÀO (SPLASH SCREEN)
   if (appPhase === 'splash') {
     return <SplashScreen onFinish={() => setAppPhase('auth')} />;
   }
 
-  // GIAI ĐOẠN 2: MÀN HÌNH ĐĂNG NHẬP FACE ID / VÂN TAY / MÃ PIN
+  // GIAI ĐOẠN 2: MÀN HÌNH XÁC THỰC FACE ID / PIN
   if (appPhase === 'auth') {
     return <SecurityLock onUnlockSuccess={() => setAppPhase('main')} />;
   }
 
-  // GIAI ĐOẠN 3: ĐĂNG NHẬP GOOGLE HOẶC GIAO DIỆN CHÍNH
+  // GIAI ĐOẠN 3: ĐĂNG NHẬP GOOGLE NẾU CHƯA CÓ TÀI KHOẢN
   if (!currentUser) {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;
   }
@@ -337,7 +344,7 @@ export default function App() {
         isLokCamActive ? 'h-[100dvh] overflow-hidden pb-3' : 'min-h-screen pb-36'
       }`}>
         
-        {/* HEADER */}
+        {/* ================= HEADER ================= */}
         <header className="flex justify-between items-center mb-3 px-1 shrink-0">
           <div>
             <span className="text-[11px] font-bold text-neutral-400">
@@ -366,11 +373,11 @@ export default function App() {
           </button>
         </header>
 
-        {/* NỘI DUNG CHÍNH */}
+        {/* ================= NỘI DUNG CHÍNH ================= */}
         <div className={`flex-1 flex flex-col min-h-0 ${isLokCamActive ? 'overflow-hidden' : 'space-y-4'}`}>
           {activeTab === 'home' && (
             <>
-              {/* THANH 3 KHÔNG GIAN */}
+              {/* THANH ĐIỀU HƯỚNG 3 KHÔNG GIAN */}
               <div className="bg-neutral-200/80 p-1 rounded-2xl grid grid-cols-3 gap-1 shrink-0 mb-3 border border-neutral-300/40">
                 <button
                   type="button"
@@ -406,59 +413,75 @@ export default function App() {
                 </button>
               </div>
 
-              {/* VÍ TIỀN */}
+              {/* KHÔNG GIAN 1: VÍ TIỀN */}
               {hubSection === 'wallet' && (
                 <div className="space-y-4 animate-tab-switch">
                   <ExpenseSummaryCard />
 
-                  {/* 4 NÚT TIỆN ÍCH */}
-                  <div className="grid grid-cols-4 gap-2">
+                  {/* 5 PHÍM TIỆN ÍCH THÔNG MINH */}
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {/* 1. Quét VietQR */}
                     <button
                       type="button"
                       onClick={() => store.setIsQrOpen?.(true)}
-                      className="p-2.5 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                      className="p-2 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
                     >
-                      <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                        <QrCode size={16} />
+                      <div className="w-7 h-7 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                        <QrCode size={15} />
                       </div>
                       <span className="text-[10px] font-black text-neutral-800">Quét QR</span>
                     </button>
 
+                    {/* 2. Quét Hóa Đơn Giấy AI */}
+                    <button
+                      type="button"
+                      onClick={() => setIsReceiptScannerOpen(true)}
+                      className="p-2 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                    >
+                      <div className="w-7 h-7 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
+                        <Receipt size={15} />
+                      </div>
+                      <span className="text-[10px] font-black text-neutral-800">Bill AI</span>
+                    </button>
+
+                    {/* 3. Chia Bill & Nhận VietQR */}
                     <button
                       type="button"
                       onClick={() => setIsSplitBillOpen(true)}
-                      className="p-2.5 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                      className="p-2 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
                     >
-                      <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center p-1">
+                      <div className="w-7 h-7 rounded-xl bg-indigo-50 flex items-center justify-center p-0.5">
                         <img src={friendsIcon} alt="Chia bill" className="w-full h-full object-contain" />
                       </div>
                       <span className="text-[10px] font-black text-neutral-800">Chia Bill</span>
                     </button>
 
+                    {/* 4. Ví Smart (Đa ví, Chuyển tiền, Ví đôi, Sổ nợ) */}
                     <button
                       type="button"
                       onClick={() => setIsSmartHubOpen(true)}
-                      className="p-2.5 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                      className="p-2 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
                     >
-                      <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                        <WalletCards size={16} />
+                      <div className="w-7 h-7 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                        <WalletCards size={15} />
                       </div>
                       <span className="text-[10px] font-black text-neutral-800">Ví Smart</span>
                     </button>
 
+                    {/* 5. Báo Cáo Dự Báo */}
                     <button
                       type="button"
                       onClick={() => useAppStore.setState({ activeTab: 'report' })}
-                      className="p-2.5 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
+                      className="p-2 bg-white rounded-2xl border border-neutral-200/80 shadow-xs flex flex-col items-center gap-1 active:scale-95 transition cursor-pointer"
                     >
-                      <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                        <Calculator size={16} />
+                      <div className="w-7 h-7 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                        <Calculator size={15} />
                       </div>
                       <span className="text-[10px] font-black text-neutral-800">Báo Cáo</span>
                     </button>
                   </div>
 
-                  {/* DẢI 1-TAP */}
+                  {/* DẢI 1-TAP THÔNG MINH */}
                   <div className="bg-white rounded-3xl p-4 border border-neutral-200/90 shadow-sm space-y-3">
                     <div className="flex justify-between items-center px-1">
                       <div className="inline-flex bg-neutral-100 p-1 rounded-xl gap-1">
@@ -542,7 +565,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* LỊCH SỬ GIAO DỊCH */}
+                  {/* LỊCH SỬ GIAO DỊCH GẦN ĐÂY */}
                   <div className="bg-white rounded-3xl p-4 shadow-sm border border-neutral-200/90 divide-y divide-neutral-100">
                     <div className="flex justify-between items-center pb-2 px-1">
                       <span className="text-xs font-black text-neutral-800">Giao dịch mới nhất</span>
@@ -575,14 +598,14 @@ export default function App() {
                 </div>
               )}
 
-              {/* LOKCAM */}
+              {/* KHÔNG GIAN 2: LOKCAM */}
               {hubSection === 'lokcam' && (
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden animate-tab-switch">
                   <NepMoments />
                 </div>
               )}
 
-              {/* NẾP CHILL */}
+              {/* KHÔNG GIAN 3: NẾP CHILL */}
               {hubSection === 'chill' && (
                 <div className="space-y-4 animate-tab-switch">
                   <EveningWhisperCard />
@@ -748,7 +771,7 @@ export default function App() {
                 </button>
               </div>
 
-              {/* KHÓA PIN & FACE ID */}
+              {/* BẬT / TẮT KHÓA MÃ PIN & FACE ID */}
               <div className="bg-neutral-900 text-white rounded-3xl p-3.5 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-black uppercase text-amber-400 flex items-center gap-1.5">
@@ -771,7 +794,7 @@ export default function App() {
                 </p>
               </div>
 
-              {/* NGÀY NHẬN LƯƠNG */}
+              {/* CHỌN NGÀY NHẬN LƯƠNG */}
               <div className="bg-amber-500/10 border border-amber-300/60 rounded-3xl p-3.5 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-black uppercase text-amber-900">
@@ -878,16 +901,25 @@ export default function App() {
           </div>
         )}
 
+        {/* MODAL TRUNG TÂM VÍ SMART */}
         <SmartFinanceHubModal
           isOpen={isSmartHubOpen}
           onClose={() => setIsSmartHubOpen(false)}
         />
 
+        {/* MODAL CHIA BILL CHUYÊN BIỆT */}
         <SplitBillModal
           isOpen={isSplitBillOpen}
           onClose={() => setIsSplitBillOpen(false)}
         />
 
+        {/* MODAL QUÉT HÓA ĐƠN GIẤY AI */}
+        <ReceiptScannerModal
+          isOpen={isReceiptScannerOpen}
+          onClose={() => setIsReceiptScannerOpen(false)}
+        />
+
+        {/* THANH DOCK ĐÁY: ẨN KHI Ở LOKCAM */}
         {!isLokCamActive && (
           <div className="fixed bottom-5 left-0 right-0 max-w-md mx-auto px-4 pointer-events-none z-30">
             <FloatingDock />
