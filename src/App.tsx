@@ -32,6 +32,7 @@ import { LoginView, GoogleUser } from './components/auth/LoginView';
 import { OnboardingModal } from './components/onboarding/OnboardingModal';
 import { SplashScreen } from './components/common/SplashScreen';
 import { SecurityLock } from './components/security/SecurityLock';
+import { OtpVerificationView } from './components/auth/OtpVerificationView';
 import { SmartFinanceHubModal } from './components/expense/SmartFinanceHubModal';
 import { SplitBillModal } from './components/expense/SplitBillModal';
 import { ReceiptScannerModal } from './components/expense/ReceiptScannerModal';
@@ -109,6 +110,9 @@ export default function App() {
   // 1. LUỒNG KHỞI ĐỘNG 3 BƯỚC: SPLASH (LOGO) -> AUTH (PIN/FACE ID) -> MAIN
   const [appPhase, setAppPhase] = useState<'splash' | 'auth' | 'main'>('splash');
 
+  // TRẠNG THÁI CHỜ XÁC THỰC OTP SAU KHI ĐĂNG NHẬP GOOGLE
+  const [pendingGoogleUser, setPendingGoogleUser] = useState<GoogleUser | null>(null);
+
   // STATE ĐIỀU KHIỂN CÁC MODAL CHỨC NĂNG RIÊNG BIỆT
   const [isSmartHubOpen, setIsSmartHubOpen] = useState(false);
   const [isSplitBillOpen, setIsSplitBillOpen] = useState(false);
@@ -118,7 +122,7 @@ export default function App() {
   const [undoToast, setUndoToast] = useState<{ id: string; text: string } | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
 
-  // PHIÊN NGƯỜI DÙNG GOOGLE
+  // PHIÊN NGƯỜI DÙNG GOOGLE HIỆN TẠI
   const [currentUser, setCurrentUser] = useState<GoogleUser | null>(() => {
     try {
       const saved = localStorage.getItem('nep_user_session_v1');
@@ -167,13 +171,13 @@ export default function App() {
   const isLokCamActive = activeTab === 'home' && hubSection === 'lokcam';
 
   const now = new Date();
-  const weekdays = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+  const weekdays = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Tháu Sáu', 'Thứ Bảy'];
   const currentWeekday = weekdays[now.getDay()];
   const currentDateLabel = `${now.getDate()} thg ${now.getMonth() + 1}`;
   const todayStr = now.toISOString().split('T')[0];
   const todaySchedules = scheduleItems.filter((i: any) => i?.dateStr === todayStr);
 
-  // QUÉT VÀ THÔNG BÁO LỊCH TRÌNH THỜI GIAN THỰC
+  // QUÉT THỜI GIAN THỰC LỊCH TRÌNH VÀ THÔNG BÁO TỰ ĐỘNG
   useEffect(() => {
     if (typeof updateLastActive === 'function') {
       notifier.checkInactivity(lastActiveTime);
@@ -190,9 +194,20 @@ export default function App() {
     return () => clearInterval(interval);
   }, [scheduleItems]);
 
-  const handleLoginSuccess = async (user: GoogleUser) => {
+  // BƯỚC 1: ĐĂNG NHẬP GOOGLE -> CHUYỂN SANG MÀN HÌNH NHẬP MÃ OTP
+  const handleGoogleLoginInitiate = (user: GoogleUser) => {
+    setPendingGoogleUser(user);
+  };
+
+  // BƯỚC 2: MÃ OTP ĐƯỢC XÁC THỰC THÀNH CÔNG -> HOÀN TẤT ĐĂNG NHẬP VÀ ĐỒNG BỘ DỮ LIỆU
+  const handleOtpVerifiedSuccess = async () => {
+    if (!pendingGoogleUser) return;
+    const user = pendingGoogleUser;
+
     setCurrentUser(user);
     localStorage.setItem('nep_user_session_v1', JSON.stringify(user));
+    setPendingGoogleUser(null);
+
     const onboardKey = `nep_onboarded_${user.id}`;
     if (!localStorage.getItem(onboardKey)) {
       useAppStore.setState({ transactions: [] });
@@ -333,9 +348,20 @@ export default function App() {
     return <SecurityLock onUnlockSuccess={() => setAppPhase('main')} />;
   }
 
-  // GIAI ĐOẠN 3: ĐĂNG NHẬP GOOGLE NẾU CHƯA CÓ TÀI KHOẢN
+  // GIAI ĐOẠN 3: NẾU ĐANG CHỜ XÁC THỰC MÃ OTP GOOGLE -> HIỂN THỊ MÀN HÌNH OTP
+  if (pendingGoogleUser) {
+    return (
+      <OtpVerificationView
+        email={pendingGoogleUser.email}
+        onVerified={handleOtpVerifiedSuccess}
+        onCancel={() => setPendingGoogleUser(null)}
+      />
+    );
+  }
+
+  // GIAI ĐOẠN 4: ĐĂNG NHẬP GOOGLE NẾU CHƯA CÓ TÀI KHOẢN
   if (!currentUser) {
-    return <LoginView onLoginSuccess={handleLoginSuccess} />;
+    return <LoginView onLoginSuccess={handleGoogleLoginInitiate} />;
   }
 
   return (
@@ -456,7 +482,7 @@ export default function App() {
                       <span className="text-[10px] font-black text-neutral-800">Chia Bill</span>
                     </button>
 
-                    {/* 4. Ví Smart (Đa ví, Chuyển tiền, Ví đôi, Sổ nợ) */}
+                    {/* 4. Ví Smart */}
                     <button
                       type="button"
                       onClick={() => setIsSmartHubOpen(true)}
@@ -901,7 +927,7 @@ export default function App() {
           </div>
         )}
 
-        {/* MODAL TRUNG TÂM VÍ SMART */}
+        {/* MODAL TRUNG TÂM VÍ SMART (ĐA VÍ, CHUYỂN TIỀN, VÍ ĐÔI, SỔ NỢ, THỬ THÁCH) */}
         <SmartFinanceHubModal
           isOpen={isSmartHubOpen}
           onClose={() => setIsSmartHubOpen(false)}
